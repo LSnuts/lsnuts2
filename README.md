@@ -1,108 +1,202 @@
-# LSNuts 综合平台
+# LSnuts 云端平台
 
-一个包含用户认证、网盘、论坛和实时聊天功能的全栈应用。
+一个基于 Vue 3 + Flask 的全栈云端平台，提供网盘存储、轻量论坛和实时聊天功能。
 
-## 项目结构
+## 🎯 功能特性
+
+### 🌐 主要功能
+- **轻量论坛** - 支持帖子发布、评论、点赞、收藏、置顶管理
+- **安全网盘** - 文件上传、下载、删除管理
+- **实时聊天** - 支持私聊和群聊功能
+- **用户系统** - 注册、登录、个人资料管理
+- **管理员面板** - 用户管理、帖子管理、权限控制
+
+### ✨ 技术亮点
+- 响应式设计，支持 PC 和移动端
+- 深色/浅色模式切换
+- Markdown 富文本编辑
+- 通知系统（评论回复、@提及）
+- 一键启动/关停脚本
+
+## 🛠️ 技术栈
+
+| 分类 | 技术 | 版本 |
+|------|------|------|
+| 前端框架 | Vue | 3.x |
+| 构建工具 | Vite | 5.x |
+| UI组件库 | Element Plus | 2.x |
+| CSS框架 | Tailwind CSS | 3.x |
+| 状态管理 | Pinia | 2.x |
+| 路由管理 | Vue Router | 4.x |
+| 后端框架 | Flask | 3.x |
+| 数据库 | SQLite | - |
+| 实时通信 | Flask-SocketIO | - |
+
+## 📁 项目结构
 
 ```
 lsnuts2/
-├── backend/          # Flask 后端
-│   ├── app.py       # 主应用文件
-│   ├── models.py    # 数据模型
-│   └── utils.py     # 工具函数
-└── frontend/        # Vue 3 前端
-    ├── src/
-    │   ├── views/  # 页面组件
-    │   ├── router/ # 路由配置
-    │   └── api/    # API 接口
-    └── package.json
+├── backend/                 # 后端 Flask 应用
+│   ├── app.py               # 主应用入口
+│   ├── models.py            # 数据库模型
+│   ├── utils.py             # 工具函数（密码加密等）
+│   └── static/uploads/      # 上传文件存储
+├── frontend/                # 前端 Vue 应用
+│   ├── src/
+│   │   ├── views/           # 页面视图
+│   │   ├── components/      # 公共组件
+│   │   ├── stores/          # Pinia 状态管理
+│   │   ├── utils/           # 工具函数
+│   │   ├── App.vue          # 根组件
+│   │   ├── main.js          # 入口文件
+│   │   └── router.js        # 路由配置
+│   ├── .env.development     # 开发环境配置
+│   └── .env.production      # 生产环境配置
+├── start.bat                # Windows 一键启动脚本
+├── start.ps1                # PowerShell 启动脚本
+├── stop.bat                 # 一键关停脚本
+└── README.md                # 项目说明文档
 ```
 
-## 后端启动
+## 🚀 快速开始
 
-1. 安装依赖：
-   ```bash
-   cd backend
-   py -m pip install Flask Flask-SQLAlchemy Flask-Login Flask-CORS Flask-SocketIO
-   ```
-
-2. 启动服务：
-   ```bash
-   py app.py
-   ```
-
-后端将运行在 http://localhost:5000
-
-## 前端启动
-
-### 前置要求
-
-需要安装 Node.js（建议版本 18+），下载地址：https://nodejs.org/
+### 环境要求
+- Python 3.8+
+- Node.js 18+
+- npm 或 yarn
 
 ### 安装依赖
 
+**后端依赖**
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+**前端依赖**
 ```bash
 cd frontend
 npm install
 ```
 
-### 开发模式
+### 启动项目
+
+**方式一：一键启动（推荐）**
+
+双击运行 `start.bat`，将自动启动：
+- 后端服务：http://127.0.0.1:5000/
+- 前端服务：http://localhost:5173/
+
+**方式二：手动启动**
 
 ```bash
+# 启动后端
+cd backend
+python app.py
+
+# 启动前端（新终端）
+cd frontend
 npm run dev
 ```
 
-前端将运行在 http://localhost:3000
+### 停止服务
 
-### 构建生产版本
+双击运行 `stop.bat` 或直接关闭命令行窗口。
 
-```bash
-npm run build
+### 初始账号
+
+访问以下地址创建默认管理员账号：
+```
+http://127.0.0.1:5000/api/admin/create
 ```
 
-## 功能说明
+默认管理员：
+- 用户名：`admin`
+- 密码：`admin123`
+
+## 🔧 配置说明
+
+### 环境变量
+
+**前端配置** (`frontend/.env.production`)
+```env
+VITE_API_BASE=https://your-domain.com
+```
+
+**后端配置**
+- SECRET_KEY：从环境变量读取，或自动生成随机密钥
+
+### 跨域配置
+
+后端已配置允许以下域名跨域访问：
+- http://localhost:5173
+- http://127.0.0.1:5173
+
+## 🌊 API 接口
 
 ### 用户认证
-- 注册新账号
-- 用户登录/退出
-- 获取当前用户信息
-
-### 网盘
-- 上传文件
-- 下载文件
-- 删除文件
-- 文件列表
+- `POST /api/login` - 用户登录
+- `POST /api/register` - 用户注册
+- `GET /api/logout` - 退出登录
+- `GET /api/user/info` - 获取用户信息
 
 ### 论坛
-- 查看帖子列表
-- 发布新帖子
-- 查看帖子详情
-- 发表评论
+- `GET /api/forum/list` - 获取帖子列表
+- `POST /api/forum/post` - 发布帖子
+- `GET /api/forum/detail/:id` - 获取帖子详情
+- `POST /api/forum/comment/:id` - 发表评论
+- `POST /api/forum/like/:id` - 点赞/取消点赞
+- `POST /api/forum/bookmark/:id` - 收藏/取消收藏
 
-### 实时聊天
-- WebSocket 实时通信
-- 群聊功能
+### 网盘
+- `GET /api/drive/list` - 获取文件列表
+- `POST /api/drive/upload` - 上传文件
+- `GET /api/drive/download/:id` - 下载文件
+- `DELETE /api/drive/delete/:id` - 删除文件
 
-### 管理功能
-- 创建管理员账号（访问 /api/admin/create）
-- 用户列表
-- 删除用户（管理员权限）
+### 管理员
+- `GET /api/admin/users` - 获取用户列表
+- `DELETE /api/admin/delete/:id` - 删除用户
+- `GET /api/admin/posts` - 获取帖子管理列表
+- `DELETE /api/admin/delete_post/:id` - 删除帖子
+- `POST /api/admin/toggle_pin/:id` - 置顶/取消置顶
 
-默认管理员账号：admin / admin123
+## 📱 页面路由
 
-## 技术栈
+| 路径 | 页面 | 描述 |
+|------|------|------|
+| `/` | 首页 | 平台介绍 |
+| `/login` | 登录 | 用户登录 |
+| `/register` | 注册 | 用户注册 |
+| `/profile` | 个人中心 | 用户资料 |
+| `/profile/posts` | 我的帖子 | 个人帖子管理 |
+| `/profile/bookmarks` | 我的收藏 | 收藏列表 |
+| `/profile/notifications` | 通知 | 消息通知 |
+| `/settings` | 设置 | 账户设置 |
+| `/drive` | 网盘 | 文件管理 |
+| `/forum` | 论坛 | 帖子列表 |
+| `/forum/post` | 发帖 | 发布新帖 |
+| `/forum/detail/:id` | 帖子详情 | 查看帖子 |
+| `/admin` | 管理后台 | 管理员面板 |
+| `/about` | 关于本站 | 网站介绍 |
 
-### 后端
-- Flask - Web 框架
-- Flask-SQLAlchemy - ORM
-- Flask-Login - 用户认证
-- Flask-CORS - 跨域支持
-- Flask-SocketIO - WebSocket
+## 🔒 安全特性
 
-### 前端
-- Vue 3 - 前端框架
-- Vite - 构建工具
-- Vue Router - 路由
-- Element Plus - UI 组件库
-- Axios - HTTP 客户端
-- Socket.IO-Client - WebSocket 客户端
+- 密码使用 Werkzeug 安全哈希存储
+- JWT Token 身份验证
+- CSRF 防护
+- SQLAlchemy ORM 防 SQL 注入
+- 文件上传安全校验
+- 权限控制中间件
+
+## 📄 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📧 联系方式
+
+如有问题，请通过 GitHub Issues 联系。

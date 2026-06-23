@@ -1,4 +1,7 @@
-# 暂时使用明文存储密码，最后再加密
-def hash_password(password: str, salt: str = "lsnuts_salt") -> str:
-    # return hashlib.md5((password + salt).encode("utf-8")).hexdigest()
-    return password  # 明文存储
+from werkzeug.security import generate_password_hash, check_password_hash
+
+def hash_password(password: str) -> str:
+    return generate_password_hash(password)
+
+def verify_password(password: str, hashed: str) -> bool:
+    return check_password_hash(hashed, password)

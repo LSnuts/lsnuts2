@@ -10,7 +10,7 @@ from flask_cors import CORS  # 跨域支持
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user  # 用户登录管理
 from flask_socketio import SocketIO, emit  # WebSocket实时通信
 from models import db, User, File, Message, Post, Comment, Notification, PostLike, Bookmark
-from utils import hash_password  # 密码加密工具
+from utils import hash_password, verify_password  # 密码加密工具
 from werkzeug.utils import secure_filename  # 安全文件名处理
 
 # 配置日志格式：时间 - 级别 - 消息
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # 初始化 Flask 应用
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173'])  # 允许跨域请求（携带凭证）
-app.config['SECRET_KEY'] = 'lsnuts_vue_2026'  # 会话加密密钥
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())  # 会话加密密钥
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///lsnuts.db'  # SQLite数据库路径
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')  # 文件上传目录
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 上传文件最大限制：10MB
@@ -37,7 +37,7 @@ def uploaded_file(filename):
 # 注册插件
 db.init_app(app)  # 初始化数据库
 login_manager = LoginManager(app)  # 初始化登录管理器
-socketio = SocketIO(app, cors_allowed_origins="*")  # 初始化WebSocket
+socketio = SocketIO(app, cors_allowed_origins=['http://localhost:5173', 'http://127.0.0.1:5173'])  # 初始化WebSocket
 
 # Flask-Login 回调：根据用户ID从数据库加载用户对象
 @login_manager.user_loader
@@ -61,7 +61,7 @@ def api_login():
     if not user:
         logger.warning(f"[登录] 失败 - 用户不存在: {data.get('username')}")
         return jsonify({'code': 400, 'msg': '该用户还未注册'})
-    if user.password != hash_password(data['password']):  # 验证密码
+    if not verify_password(data['password'], user.password):  # 验证密码
         logger.warning(f"[登录] 失败 - 密码错误: {data.get('username')}")
         return jsonify({'code': 400, 'msg': '密码错误'})
     login_user(user)  # 记录登录状态
@@ -235,7 +235,7 @@ def admin_users():
     return jsonify({'code': 200, 'data': res})
 
 # 管理员删除指定用户（不能删除自己）
-@app.route('/api/admin/delete/<int:uid>')
+@app.route('/api/admin/delete/<int:uid>', methods=['DELETE'])
 @login_required
 def admin_delete(uid):
     if current_user.is_admin !=1 or uid == current_user.id:
@@ -378,7 +378,7 @@ def drive_download(file_id):
     return send_file(file_path, as_attachment=True, download_name=file.filename)
 
 # 删除网盘文件（同时清除服务器物理文件和数据库记录）
-@app.route('/api/drive/delete/<int:file_id>')
+@app.route('/api/drive/delete/<int:file_id>', methods=['DELETE'])
 @login_required
 def drive_delete(file_id):
     file = File.query.get(file_id)
@@ -938,4 +938,4 @@ if __name__ == '__main__':
             logger.info(f"[迁移] post_likes 表创建成功")
         except Exception:
             pass
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000)

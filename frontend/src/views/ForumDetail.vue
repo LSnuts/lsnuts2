@@ -15,7 +15,7 @@
     <el-card class="mb-4 shadow-md">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-3">
-          <img :src="post.avatar ? 'http://127.0.0.1:5000' + post.avatar : defaultAvatar" :alt="post.user" class="w-6 h-6 object-cover" />
+          <img :src="post.avatar ? 'API_BASE' + post.avatar : defaultAvatar" :alt="post.user" class="w-6 h-6 object-cover" />
           <div>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-gray-800 dark:text-gray-200">{{ post.user || '匿名用户' }}</span>
@@ -34,7 +34,7 @@
       </div>
 
       <div v-if="post.image" class="mt-4">
-        <img :src="'http://127.0.0.1:5000' + post.image" class="max-w-full max-h-[400px] object-contain rounded border" />
+        <img :src="'API_BASE' + post.image" class="max-w-full max-h-[400px] object-contain rounded border" />
       </div>
       <div v-if="post.attachment_name" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
         <div class="flex items-center justify-between">
@@ -42,7 +42,7 @@
             <span class="text-lg flex-shrink-0">📎</span>
             <span class="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">{{ post.attachment_name }}</span>
           </div>
-          <a :href="'http://127.0.0.1:5000/api/forum/attachment/' + post.id" class="el-button el-button--primary el-button--small flex-shrink-0 ml-3 !no-underline">📥 下载附件</a>
+          <a :href="'API_BASE/api/forum/attachment/' + post.id" class="el-button el-button--primary el-button--small flex-shrink-0 ml-3 !no-underline">📥 下载附件</a>
         </div>
       </div>
 
@@ -94,7 +94,7 @@
         <template v-for="(c, index) in comments" :key="c.id">
           <div :id="'comment-'+c.id" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 comment-item">
             <div class="flex items-start gap-3">
-              <img :src="c.avatar ? 'http://127.0.0.1:5000' + c.avatar : defaultAvatar" :alt="c.user" class="w-[10vw] h-[10vw] max-w-[48px] max-h-[48px] min-w-[24px] min-h-[24px] object-cover flex-shrink-0 mt-0.5 rounded-full" />
+              <img :src="c.avatar ? 'API_BASE' + c.avatar : defaultAvatar" :alt="c.user" class="w-[10vw] h-[10vw] max-w-[48px] max-h-[48px] min-w-[24px] min-h-[24px] object-cover flex-shrink-0 mt-0.5 rounded-full" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.user || '匿名用户' }}</span>
@@ -159,6 +159,7 @@ import axios from '../axios'
 import { ElMessage } from 'element-plus'
 import { renderMarkdown } from '../markdown.js'
 import { tagType, tagLabel } from '../utils/helpers'
+import { API_BASE } from '../utils/constants'
 
 const route = useRoute()
 const router = useRouter()
