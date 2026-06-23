@@ -32,30 +32,26 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../axios'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const notifications = ref([])
-
-const mockNotifications = [
-  { id: 1, replier: '张三', type: 'post_reply', comment_content: '非常好的分享，学习了！', post_title: 'Vue3 组合式API入门指南', create_time: '2024-01-15 11:00', post_id: 1, comment_id: 5, post_deleted: false, is_read: false },
-  { id: 2, replier: '李四', type: 'mention', comment_content: '@你 在评论中提到了你', post_title: '如何优化前端性能？', create_time: '2024-01-14 16:30', post_id: 2, comment_id: 8, post_deleted: false, is_read: false },
-  { id: 3, replier: '王五', type: 'comment_reply', comment_content: '我觉得可以试试这种方法...', post_title: '请教一个Python问题', create_time: '2024-01-13 10:15', post_id: 4, comment_id: 12, post_deleted: false, is_read: true },
-  { id: 4, replier: '赵六', type: 'post_reply', comment_content: '感谢分享！', post_title: '分享我的学习笔记', create_time: '2024-01-12 17:45', post_id: 5, comment_id: 15, post_deleted: true, is_read: true },
-]
 
 const loadNotifications = async () => {
   try {
     const res = await axios.get('/api/notifications')
     notifications.value = res.data.data
   } catch (e) {
-    notifications.value = mockNotifications
+    ElMessage.error('加载失败，请刷新重试')
   }
 }
 
 const deleteNotif = async (id) => {
   try {
     await axios.delete(`/api/notifications/${id}`)
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
   notifications.value = notifications.value.filter(n => n.id !== id)
 }
 

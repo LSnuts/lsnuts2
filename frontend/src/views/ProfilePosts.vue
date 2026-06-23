@@ -50,14 +50,6 @@ const postsTotal = ref(0)
 const postsPage = ref(1)
 const loadingPosts = ref(false)
 
-const mockPosts = [
-  { id: 1, title: 'Vue3 组合式API入门指南', tag: 'tech', create_time: '2024-01-15 10:30', comment_count: 12, like_count: 45 },
-  { id: 2, title: '如何优化前端性能？', tag: 'tech', create_time: '2024-01-14 15:20', comment_count: 8, like_count: 23 },
-  { id: 3, title: '周末去哪儿玩？', tag: 'chat', create_time: '2024-01-13 09:15', comment_count: 25, like_count: 67 },
-  { id: 4, title: '请教一个Python问题', tag: 'help', create_time: '2024-01-12 14:45', comment_count: 5, like_count: 8 },
-  { id: 5, title: '分享我的学习笔记', tag: 'tech', create_time: '2024-01-11 16:00', comment_count: 15, like_count: 34 },
-]
-
 const loadPosts = async (page = 1) => {
   loadingPosts.value = true
   try {
@@ -65,8 +57,7 @@ const loadPosts = async (page = 1) => {
     if (page === 1) { posts.value = res.data.data } else { posts.value.push(...res.data.data) }
     postsTotal.value = res.data.total; postsPage.value = page
   } catch (e) {
-    posts.value = mockPosts
-    postsTotal.value = mockPosts.length
+    ElMessage.error('加载失败，请刷新重试')
   } finally { loadingPosts.value = false }
 }
 
@@ -78,9 +69,7 @@ const deletePost = async (postId) => {
     loadPosts(postsPage.value)
   } catch (e) {
     if (e !== 'cancel') {
-      posts.value = posts.value.filter(p => p.id !== postId)
-      postsTotal.value = posts.value.length
-      ElMessage.success('已删除')
+      ElMessage.error('删除失败')
     }
   }
 }

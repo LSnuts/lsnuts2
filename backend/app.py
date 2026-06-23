@@ -9,6 +9,7 @@ except ImportError:
     pass  # 如果没有安装 python-dotenv，忽略此步骤
 import random  # 随机数生成
 import re  # 正则表达式解析@提及
+from sqlalchemy import select  # 子查询支持
 import string  # 字符串工具
 import logging  # 日志记录
 from datetime import datetime
@@ -197,7 +198,7 @@ def update_password():
         return jsonify({'code': 400, 'msg': '新旧密码不能为空'})
     if len(new_pw) < 6 or len(new_pw) > 30:
         return jsonify({'code': 400, 'msg': '新密码需6-30个字符'})
-    if hash_password(old_pw) != current_user.password:
+    if not verify_password(old_pw, current_user.password):
         return jsonify({'code': 400, 'msg': '旧密码不正确'})
     current_user.password = hash_password(new_pw)
     db.session.commit()
@@ -248,10 +249,12 @@ def user_bookmarks():
 
 # ========== 2. 管理员接口 ==========
 # 创建默认管理员账号（仅首次运行调用）
-@app.route('/api/admin/create')
+@app.route('/api/admin/create', methods=['POST'])
 def create_admin():
-    if User.query.filter_by(username='admin').first():
-        return ok(msg='管理员已存在')
+    # 如果系统中已有管理员，需要管理员权限才能创建新管理员
+    if User.query.filter_by(is_admin=1).first():
+        if not current_user.is_authenticated or not current_user.is_admin:
+            return fail('无权限', 403)
     admin = User(username='admin', account_code=generate_account_code(), password=hash_password('admin123'), is_admin=1)
     db.session.add(admin)
     db.session.commit()
@@ -431,8 +434,22 @@ def forum_list():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     
-    # 构建查询
-    query = db.session.query(Post, User.username, User.is_admin, User.avatar).join(User, Post.user_id == User.id)
+    # 子查询：统计每个帖子的评论数
+    comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
+    # 子查询：统计每个帖子的点赞数
+    like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()
+    
+    # 构建查询（使用 LEFT JOIN 避免 N+1 查询）
+    query = db.session.query(
+        Post, 
+        User.username, 
+        User.is_admin, 
+        User.avatar,
+        func.coalesce(comment_count_subq.c.count, 0).label('comment_count'),
+        func.coalesce(like_count_subq.c.count, 0).label('like_count')
+    ).join(User, Post.user_id == User.id)\
+     .outerjoin(comment_count_subq, Post.id == comment_count_subq.c.post_id)\
+     .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)
     
     # 标题搜索过滤
     if search:
@@ -453,13 +470,11 @@ def forum_list():
     items = query.offset((page - 1) * per_page).limit(per_page).all()
     
     data = []
-    for post, username, is_admin, avatar in items:
-        comment_count = db.session.query(Comment).filter(Comment.post_id == post.id).count()
-        like_count = PostLike.query.filter_by(post_id=post.id).count()
+    for post, username, is_admin, avatar, comment_count, like_count in items:
         data.append({
             'id': post.id,
             'title': post.title,
-            'content': post.content,
+            'content': post.content[:100] + '...' if len(post.content) > 100 else post.content,
             'user': username,
             'is_admin': is_admin,
             'avatar': avatar,
@@ -643,7 +658,7 @@ def forum_comment(post_id):
     return jsonify({'code':200, 'msg':'回复成功' if parent_id else '评论成功', 'data': {'id': comment.id}})
 
 # 管理员在论坛页面直接删除帖子（含评论）
-@app.route('/api/forum/delete/<int:post_id>')
+@app.route('/api/forum/delete/<int:post_id>', methods=['DELETE'])
 @login_required
 def forum_delete(post_id):
     if current_user.is_admin != 1:
@@ -753,6 +768,7 @@ def forum_bookmark(post_id):
 
 # 下载论坛帖子附件
 @app.route('/api/forum/attachment/<int:post_id>')
+@login_required
 def forum_attachment_download(post_id):
     post = Post.query.get(post_id)
     if not post or not post.attachment_path:
@@ -869,10 +885,22 @@ def handle_send_msg(data):
 @login_required
 def chat_history(other_id):
     logger.info(f"[聊天记录] 用户 {current_user.id} 请求与用户 {other_id} 的聊天记录")
-    messages = db.session.query(Message, User.username).join(User, Message.sender_id == User.id).filter(
+    
+    # 获取分页参数
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    
+    # 构建查询
+    query = db.session.query(Message, User.username).join(User, Message.sender_id == User.id).filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == other_id)) |
         ((Message.sender_id == other_id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.send_time.asc()).all()
+    ).order_by(Message.send_time.asc())
+    
+    # 获取总数
+    total = query.count()
+    
+    # 分页查询
+    messages = query.offset(offset).limit(limit).all()
     
     data = []
     for msg, sender_name in messages:
@@ -883,8 +911,8 @@ def chat_history(other_id):
             'send_time': msg.send_time.strftime('%Y-%m-%d %H:%M:%S')
         })
     
-    logger.info(f"[聊天记录] 返回 {len(data)} 条消息")
-    return jsonify({'code': 200, 'data': data})
+    logger.info(f"[聊天记录] 返回 {len(data)}/{total} 条消息")
+    return jsonify({'code': 200, 'data': data, 'total': total, 'limit': limit, 'offset': offset})
 
 # 搜索用户（支持按ID、账号码、用户名模糊搜索）
 @app.route('/api/user/search')

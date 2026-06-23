@@ -102,7 +102,7 @@
                   <el-tag v-if="c.is_admin === 1" type="danger" size="small">管理员</el-tag>
                   <span class="text-xs text-gray-400 dark:text-gray-500 ml-auto">{{ c.create_time }}</span>
                 </div>
-                <div class="text-sm leading-relaxed p-3 rounded bg-[#3C4F5C] text-white dark:bg-gray-700 markdown-body" v-html="renderMd(c.content)"></div>
+                <div class="text-sm leading-relaxed p-3 rounded bg-gray-100 dark:bg-gray-700 markdown-body" v-html="renderMd(c.content)"></div>
                 <div class="mt-2">
                   <el-button size="small" type="primary" class="reply-btn" @click="toggleReply(c)">💬 回复</el-button>
                 </div>

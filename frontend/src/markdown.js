@@ -4,8 +4,25 @@ export function renderMarkdown(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded my-2">')
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-blue-500 hover:text-blue-700 underline">$1</a>')
+  // 图片链接过滤：只允许 http/https 协议
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+    if (url.toLowerCase().startsWith('javascript:') || 
+        url.toLowerCase().startsWith('data:') ||
+        url.toLowerCase().startsWith('vbscript:')) {
+      return alt
+    }
+    return `<img src="${url}" alt="${alt}" class="max-w-full rounded my-2">`
+  })
+  // 链接过滤：只允许 http/https 协议，防止 javascript: 协议攻击
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    if (url.toLowerCase().startsWith('javascript:') || 
+        url.toLowerCase().startsWith('vbscript:') ||
+        url.toLowerCase().startsWith('data:') ||
+        url.toLowerCase().startsWith('file:')) {
+      return text
+    }
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 underline">${text}</a>`
+  })
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/~~(.+?)~~/g, '<del>$1</del>')

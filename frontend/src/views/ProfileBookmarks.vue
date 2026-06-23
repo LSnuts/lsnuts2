@@ -29,17 +29,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from '../axios'
+import { ElMessage } from 'element-plus'
 
 const bookmarks = ref([])
 const bookmarksTotal = ref(0)
 const bookmarksPage = ref(1)
 const loadingBookmarks = ref(false)
-
-const mockBookmarks = [
-  { id: 1, title: 'Python异步编程详解', user: '张三', create_time: '2024-01-10 08:30', comment_count: 18, like_count: 56 },
-  { id: 2, title: 'Docker容器化部署实践', user: '李四', create_time: '2024-01-08 12:15', comment_count: 32, like_count: 89 },
-  { id: 3, title: '前端工程化最佳实践', user: '王五', create_time: '2024-01-05 16:45', comment_count: 24, like_count: 72 },
-]
 
 const loadBookmarks = async (page = 1) => {
   loadingBookmarks.value = true
@@ -48,8 +43,7 @@ const loadBookmarks = async (page = 1) => {
     if (page === 1) { bookmarks.value = res.data.data } else { bookmarks.value.push(...res.data.data) }
     bookmarksTotal.value = res.data.total; bookmarksPage.value = page
   } catch (e) {
-    bookmarks.value = mockBookmarks
-    bookmarksTotal.value = mockBookmarks.length
+    ElMessage.error('加载失败，请刷新重试')
   } finally { loadingBookmarks.value = false }
 }
 
