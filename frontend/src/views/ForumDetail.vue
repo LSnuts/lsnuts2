@@ -15,7 +15,7 @@
     <el-card class="mb-4 shadow-md">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-3">
-          <img :src="post.avatar ? 'API_BASE' + post.avatar : defaultAvatar" :alt="post.user" class="w-6 h-6 object-cover" />
+          <img :src="getAvatar(post.avatar)" :alt="post.user" class="w-6 h-6 object-cover" />
           <div>
             <div class="flex items-center gap-2">
               <span class="font-semibold text-gray-800 dark:text-gray-200">{{ post.user || '匿名用户' }}</span>
@@ -34,7 +34,7 @@
       </div>
 
       <div v-if="post.image" class="mt-4">
-        <img :src="'API_BASE' + post.image" class="max-w-full max-h-[400px] object-contain rounded border" />
+        <img :src="API_BASE + post.image" class="max-w-full max-h-[400px] object-contain rounded border" />
       </div>
       <div v-if="post.attachment_name" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
         <div class="flex items-center justify-between">
@@ -42,7 +42,7 @@
             <span class="text-lg flex-shrink-0">📎</span>
             <span class="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">{{ post.attachment_name }}</span>
           </div>
-          <a :href="'API_BASE/api/forum/attachment/' + post.id" class="el-button el-button--primary el-button--small flex-shrink-0 ml-3 !no-underline">📥 下载附件</a>
+          <a :href="API_BASE + '/api/forum/attachment/' + post.id" class="el-button el-button--primary el-button--small flex-shrink-0 ml-3 !no-underline">📥 下载附件</a>
         </div>
       </div>
 
@@ -94,7 +94,7 @@
         <template v-for="(c, index) in comments" :key="c.id">
           <div :id="'comment-'+c.id" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 comment-item">
             <div class="flex items-start gap-3">
-              <img :src="c.avatar ? 'API_BASE' + c.avatar : defaultAvatar" :alt="c.user" class="w-[10vw] h-[10vw] max-w-[48px] max-h-[48px] min-w-[24px] min-h-[24px] object-cover flex-shrink-0 mt-0.5 rounded-full" />
+              <img :src="getAvatar(c.avatar)" :alt="c.user" class="w-[10vw] h-[10vw] max-w-[48px] max-h-[48px] min-w-[24px] min-h-[24px] object-cover flex-shrink-0 mt-0.5 rounded-full" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.user || '匿名用户' }}</span>
@@ -177,6 +177,8 @@ const currentUserId = ref(null)
 const defaultAvatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"%3E%3Crect fill="%239CA3AF" width="24" height="24" rx="2"/%3E%3Ctext fill="white" font-family="sans-serif" font-size="12" font-weight="bold" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EU%3C/text%3E%3C/svg%3E'
 
 const renderMd = (text) => renderMarkdown(text)
+
+const getAvatar = (avatarPath) => avatarPath ? API_BASE + avatarPath : defaultAvatar
 
 const canEdit = computed(() => {
   return post.value.user_id && currentUserId.value && post.value.user_id === currentUserId.value
@@ -280,8 +282,8 @@ watch(() => route.params.id, () => { if (route.params.id) getDetail() })
 
 <style scoped>
 .comment-item { transition: background-color 0.5s ease; }
-.comment-item.highlight-comment { background-color: #fbbf24 !important; }
-.dark .comment-item.highlight-comment { background-color: #78350f !important; }
+.comment-item.highlight-comment { background-color: #fbbf24; }
+:deep(.dark) .comment-item.highlight-comment { background-color: #78350f; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .markdown-body :deep(a) { color: #60a5fa; text-decoration: underline; }

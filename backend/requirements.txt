@@ -1,0 +1,16 @@
+# Flask 核心框架
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-CORS==4.0.0
+Flask-Login==0.6.3
+Flask-JWT-Extended==4.6.0
+Flask-SocketIO==5.3.6
+
+# 数据库驱动
+psycopg2-binary==2.9.9  # PostgreSQL
+# sqlite3 是 Python 内置的，不需要额外安装
+
+# 其他依赖
+Werkzeug==3.0.1  # 密码哈希
+eventlet==0.33.3  # SocketIO 异步驱动
+python-dotenv==1.0.0  # 环境变量配置

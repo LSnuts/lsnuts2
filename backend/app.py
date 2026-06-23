@@ -1,5 +1,12 @@
 import os  # 文件路径操作
 import uuid  # 生成唯一文件名
+
+# 加载环境变量配置
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # 加载 .env 文件中的环境变量
+except ImportError:
+    pass  # 如果没有安装 python-dotenv，忽略此步骤
 import random  # 随机数生成
 import re  # 正则表达式解析@提及
 import string  # 字符串工具
@@ -21,7 +28,15 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173'])  # 允许跨域请求（携带凭证）
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())  # 会话加密密钥
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///lsnuts.db'  # SQLite数据库路径
+
+# 数据库配置 - 优先使用环境变量，默认使用 SQLite
+if os.environ.get('DATABASE_URL'):
+    # PostgreSQL 配置 (格式: postgresql://user:password@host:port/dbname)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+else:
+    # 默认 SQLite 配置
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'lsnuts.db')
+
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')  # 文件上传目录
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 上传文件最大限制：10MB
 
@@ -43,6 +58,24 @@ socketio = SocketIO(app, cors_allowed_origins=['http://localhost:5173', 'http://
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# 统一响应格式
+def ok(data=None, msg='success'):
+    return jsonify({'code': 200, 'msg': msg, 'data': data})
+
+def fail(msg, code=400):
+    return jsonify({'code': code, 'msg': msg}), code
+
+# 管理员权限装饰器
+def admin_required(func):
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return fail('请先登录', 401)
+        if not current_user.is_admin:
+            return fail('无权限', 403)
+        return func(*args, **kwargs)
+    wrapper.__name__ = func.__name__
+    return wrapper
 
 # 生成唯一的6位数字账号码（保证不重复）
 def generate_account_code():
@@ -218,42 +251,37 @@ def user_bookmarks():
 @app.route('/api/admin/create')
 def create_admin():
     if User.query.filter_by(username='admin').first():
-        return jsonify({'code': 200, 'msg': '管理员已存在'})
+        return ok(msg='管理员已存在')
     admin = User(username='admin', account_code=generate_account_code(), password=hash_password('admin123'), is_admin=1)
     db.session.add(admin)
     db.session.commit()
-    return jsonify({'code': 200, 'msg': '管理员创建成功！账号：admin 密码：admin123'})
+    return ok(msg='管理员创建成功！账号：admin 密码：admin123')
 
 # 管理员获取所有用户列表
 @app.route('/api/admin/users')
-@login_required
+@admin_required
 def admin_users():
-    if current_user.is_admin != 1:  # 权限检查：仅管理员可访问
-        return jsonify({'code': 403, 'msg': '无权限'})
     users = User.query.all()
     res = [{'id': u.id, 'username': u.username, 'account_code': u.account_code, 'is_admin': u.is_admin, 'create_time': u.create_time.strftime('%Y-%m-%d %H:%M:%S')} for u in users]
-    return jsonify({'code': 200, 'data': res})
+    return ok(data=res)
 
 # 管理员删除指定用户（不能删除自己）
 @app.route('/api/admin/delete/<int:uid>', methods=['DELETE'])
-@login_required
+@admin_required
 def admin_delete(uid):
-    if current_user.is_admin !=1 or uid == current_user.id:
-        return jsonify({'code':403, 'msg':'无权限'})
+    if uid == current_user.id:
+        return fail('不能删除自己')
     db.session.delete(User.query.get(uid))
     db.session.commit()
-    return jsonify({'code':200, 'msg':'删除成功'})
+    return ok(msg='删除成功')
 
 # 管理员重置用户头像为默认
 @app.route('/api/admin/reset_avatar/<int:uid>', methods=['POST'])
-@login_required
+@admin_required
 def admin_reset_avatar(uid):
-    if current_user.is_admin != 1:
-        return jsonify({'code': 403, 'msg': '无权限'})
-    
     user = User.query.get(uid)
     if not user:
-        return jsonify({'code': 400, 'msg': '用户不存在'})
+        return fail('用户不存在')
     
     # 删除服务器上的旧头像文件（如果存在）
     if user.avatar:
@@ -265,14 +293,14 @@ def admin_reset_avatar(uid):
     user.avatar = None
     db.session.commit()
     
-    return jsonify({'code': 200, 'msg': '头像已重置为默认'})
+    return ok(msg='头像已重置为默认')
 
 # 管理员修改用户信息（用户名、密码、权限）
 @app.route('/api/admin/update/<int:uid>', methods=['POST'])
-@login_required
+@admin_required
 def admin_update(uid):
-    if current_user.is_admin != 1 or uid == current_user.id:
-        return jsonify({'code': 403, 'msg': '无权限'})
+    if uid == current_user.id:
+        return fail('不能修改自己')
     
     data = request.json
     user = User.query.get(uid)
@@ -280,7 +308,7 @@ def admin_update(uid):
     # 修改用户名，需检查是否与其他用户冲突
     if 'username' in data and data['username']:
         if User.query.filter(User.username == data['username'], User.id != uid).first():
-            return jsonify({'code': 400, 'msg': '用户名已存在'})
+            return fail('用户名已存在')
         user.username = data['username']
     
     # 修改密码（可为空，不填则不修改）
@@ -292,14 +320,12 @@ def admin_update(uid):
         user.is_admin = int(data['is_admin'])
     
     db.session.commit()
-    return jsonify({'code': 200, 'msg': '修改成功'})
+    return ok(msg='修改成功')
 
 # 管理员获取帖子列表（置顶优先，含作者用户名和评论数）
 @app.route('/api/admin/posts')
-@login_required
+@admin_required
 def admin_posts():
-    if current_user.is_admin != 1:
-        return jsonify({'code': 403, 'msg': '无权限'})
     posts = db.session.query(Post, User.username).join(User, Post.user_id == User.id).order_by(Post.is_pinned.desc(), Post.create_time.desc()).all()
     res = []
     for post, username in posts:
@@ -312,33 +338,29 @@ def admin_posts():
             'comment_count': comment_count,
             'is_pinned': post.is_pinned
         })
-    return jsonify({'code': 200, 'data': res})
+    return ok(data=res)
 
 # 管理员删除帖子（同时删除该帖子的所有评论）
-@app.route('/api/admin/delete_post/<int:post_id>')
-@login_required
+@app.route('/api/admin/delete_post/<int:post_id>', methods=['DELETE'])
+@admin_required
 def admin_delete_post(post_id):
-    if current_user.is_admin != 1:
-        return jsonify({'code': 403, 'msg': '无权限'})
     Comment.query.filter(Comment.post_id == post_id).delete()  # 先删除关联评论
     db.session.delete(Post.query.get(post_id))  # 再删除帖子
     db.session.commit()
-    return jsonify({'code': 200, 'msg': '删除成功'})
+    return ok(msg='删除成功')
 
 # 管理员置顶/取消置顶帖子
 @app.route('/api/admin/toggle_pin/<int:post_id>', methods=['POST'])
-@login_required
+@admin_required
 def admin_toggle_pin(post_id):
-    if current_user.is_admin != 1:
-        return jsonify({'code': 403, 'msg': '无权限'})
     post = Post.query.get(post_id)
     if not post:
-        return jsonify({'code': 400, 'msg': '帖子不存在'})
+        return fail('帖子不存在')
     post.is_pinned = 1 if post.is_pinned == 0 else 0
     db.session.commit()
     status = '置顶' if post.is_pinned == 1 else '取消置顶'
     logger.info(f"[置顶] 管理员 {current_user.username} 将帖子 {post_id} {status}")
-    return jsonify({'code': 200, 'msg': f'{status}成功', 'data': {'is_pinned': post.is_pinned}})
+    return ok(msg=f'{status}成功', data={'is_pinned': post.is_pinned})
 
 # ========== 3. 网盘接口 ==========
 # 获取当前用户的文件列表（支持分页）

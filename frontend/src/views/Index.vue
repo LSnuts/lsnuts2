@@ -56,7 +56,7 @@
           </div>
         </el-col>
         <el-col :span="24" :md="8" class="mb-5">
-          <div class="feature-card dark:!bg-gray-800 dark:!shadow-black/30" @click="$router.push('/profile')">
+          <div class="feature-card" @click="$router.push('/profile')">
             <div class="feature-icon bg-purple-100 text-purple-600">
               <span class="text-4xl">👤</span>
             </div>
@@ -119,19 +119,13 @@ const currentDate = computed(() => {
 }
 </style>
 
-<style>
-.dark .feature-card {
-  background: #1f2937 !important;
-  color: #e5e7eb !important;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+<style scoped>
+:deep(.dark) .feature-card {
+  background: #1f2937;
+  color: #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }
-.dark .feature-card:hover {
-  box-shadow: 0 8px 25px rgba(0,0,0,0.4) !important;
-}
-.dark .feature-card h3 {
-  color: #e5e7eb !important;
-}
-.dark .feature-card p {
-  color: #9ca3af !important;
+:deep(.dark) .feature-card:hover {
+  box-shadow: 0 8px 25px rgba(0,0,0,0.4);
 }
 </style>

@@ -141,7 +141,7 @@ const getMyId = async () => {
 
 // 删除指定用户
 const del = async (id) => {
-  await axios.get(`/api/admin/delete/${id}`)
+  await axios.delete(`/api/admin/delete/${id}`)
   ElMessage.success('删除成功')
   getUsers()
 }
@@ -164,7 +164,7 @@ const viewPost = (id) => {
 
 // 删除帖子
 const delPost = async (id) => {
-  await axios.get(`/api/admin/delete_post/${id}`)
+  await axios.delete(`/api/admin/delete_post/${id}`)
   ElMessage.success('删除成功')
   getPosts()
 }
@@ -227,10 +227,8 @@ const loadPosts = () => {
   getPosts()
 }
 
-// 页面加载时初始化所有数据
-onMounted(async () => {
-  await getUsers()
-  await getPosts()
-  await getMyId()
+// 页面加载时初始化所有数据（并行请求优化）
+onMounted(() => {
+  Promise.all([getUsers(), getPosts(), getMyId()])
 })
 </script>

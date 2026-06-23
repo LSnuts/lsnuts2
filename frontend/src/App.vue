@@ -182,7 +182,7 @@ onMounted(() => {
   padding: 0 20px;
 }
 .desktop-header .logo { font-size: 20px; font-weight: bold; color: #409eff; margin-right: 30px; white-space: nowrap; }
-.nav { flex: 1; border: none !important; background: transparent !important; }
+.desktop-header :deep(.el-menu) { flex: 1; border: none; background: transparent; }
 
 /* 移动端导航栏 - 默认隐藏 */
 .mobile-header {
@@ -204,11 +204,11 @@ onMounted(() => {
 
 /* 响应式：移动端显示移动端导航，隐藏桌面端导航 */
 @media (max-width: 768px) {
-  .desktop-header {
-    display: none !important;
+  :deep(.header.desktop-header) {
+    display: none;
   }
   .mobile-header {
-    display: flex !important;
+    display: flex;
   }
   .main { min-height: calc(100vh - 50px); }
 }
