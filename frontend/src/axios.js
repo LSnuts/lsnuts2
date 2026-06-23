@@ -11,6 +11,15 @@ const instance = axios.create({
   withCredentials: true
 })
 
+// 请求拦截器：自动添加 Authorization header
+instance.interceptors.request.use(config => {
+  const token = localStorage.getItem('lsnuts_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 instance.interceptors.response.use(
   res => res,
   err => {

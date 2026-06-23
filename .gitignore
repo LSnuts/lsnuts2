@@ -1,0 +1,10 @@
+instance/
+*.db
+test_upload.txt
+.reasonix/
+.env
+.env.local
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store

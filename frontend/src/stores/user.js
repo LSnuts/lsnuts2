@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from '../axios'
+import { API_BASE } from '../utils/constants'
 
 export const useUserStore = defineStore('user', () => {
   const userInfo = ref({ is_admin: 0 })
@@ -9,7 +10,7 @@ export const useUserStore = defineStore('user', () => {
   const notifications = ref([])
 
   const avatarUrl = computed(() => {
-    if (userInfo.value.avatar) return 'http://127.0.0.1:5000' + userInfo.value.avatar
+    if (userInfo.value.avatar) return API_BASE + userInfo.value.avatar
     return ''
   })
 

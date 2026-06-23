@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import axios from './axios'
+import { useUserStore } from './stores/user'
 
 const routes = [
   { path: '/', component: () => import('./views/Index.vue') },
@@ -34,17 +34,14 @@ router.beforeEach(async (to, from) => {
   }
 
   if (to.path === '/admin') {
-    try {
-      const res = await axios.get('/api/user/info')
-      if (res.data.data.is_admin === 1) {
-        return true
-      } else {
-        return '/'
-      }
-    } catch (e) {
-      if (e.response?.status === 401) {
-        return '/login'
-      }
+    // 使用 store 缓存，避免每次路由切换都请求
+    const store = useUserStore()
+    if (!store.userInfo || store.userInfo.is_admin === undefined) {
+      await store.fetchUserInfo()
+    }
+    if (store.userInfo.is_admin === 1) {
+      return true
+    } else {
       return '/'
     }
   }
