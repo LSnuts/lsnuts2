@@ -9,7 +9,7 @@ except ImportError:
     pass  # 如果没有安装 python-dotenv，忽略此步骤
 import random  # 随机数生成
 import re  # 正则表达式解析@提及
-from sqlalchemy import select  # 子查询支持
+from sqlalchemy import select, func  # 子查询支持和聚合函数
 import string  # 字符串工具
 import logging  # 日志记录
 from datetime import datetime
