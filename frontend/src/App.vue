@@ -1,7 +1,7 @@
 <template>
   <el-container :class="['app-container', { dark: isDark }]" style="min-height: 100vh">
     <!-- 桌面端顶部导航栏 -->
-    <el-header class="header hidden md:flex">
+    <el-header class="header desktop-header">
       <div class="logo">☁️ lsnuts 云端平台</div>
       <el-menu mode="horizontal" :default-active="$route.path" class="nav" router>
         <el-menu-item index="/">首页</el-menu-item>
@@ -31,7 +31,7 @@
     </el-header>
 
     <!-- 移动端顶部导航栏 -->
-    <div class="mobile-header md:hidden">
+    <div class="mobile-header">
       <el-button class="menu-btn" @click="drawerVisible = true">☰</el-button>
       <div class="logo">☁️ lsnuts</div>
       <div class="flex items-center gap-1">
@@ -173,8 +173,20 @@ onMounted(() => {
 </script>
 
 <style>
-.mobile-header {
+/* 桌面端导航栏 - 默认显示 */
+.desktop-header {
   display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 20px;
+}
+.desktop-header .logo { font-size: 20px; font-weight: bold; color: #409eff; margin-right: 30px; white-space: nowrap; }
+.nav { flex: 1; border: none !important; background: transparent !important; }
+
+/* 移动端导航栏 - 默认隐藏 */
+.mobile-header {
+  display: none;
   justify-content: space-between;
   align-items: center;
   background: var(--bg-card);
@@ -185,22 +197,19 @@ onMounted(() => {
 .mobile-header .logo { font-size: 18px; font-weight: bold; color: #409eff; }
 .menu-btn { border: none; background: transparent; font-size: 24px; color: var(--text-primary); }
 
-.header {
-  display: flex;
-  align-items: center;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 20px;
-}
-.logo { font-size: 20px; font-weight: bold; color: #409eff; margin-right: 30px; white-space: nowrap; }
-.nav { flex: 1; border: none !important; background: transparent !important; }
-
 .main { background: var(--bg-main); min-height: calc(100vh - 60px); padding: 0; }
 
 .drawer-nav { padding-top: 20px; }
 .drawer-logo { font-size: 18px; font-weight: bold; color: #409eff; text-align: center; margin-bottom: 16px; }
 
+/* 响应式：移动端显示移动端导航，隐藏桌面端导航 */
 @media (max-width: 768px) {
+  .desktop-header {
+    display: none !important;
+  }
+  .mobile-header {
+    display: flex !important;
+  }
   .main { min-height: calc(100vh - 50px); }
 }
 

@@ -4,11 +4,13 @@
     <!-- 顶部欢迎区域 -->
     <div class="hero text-center px-4 py-10 md:py-16">
       <div class="max-w-3xl mx-auto">
+        
         <h1 class="text-2xl md:text-5xl text-white font-bold mb-3">
-          ☁️ 欢迎使用 lsnuts 云端平台
+          ☁️欢迎光临lsnuts
         </h1>
+        <div class="text-white/70 text-sm md:text-base mb-4">{{ currentDate }}</div>
         <p class="text-base md:text-xl text-white/80 mb-8">
-          安全网盘存储 · 轻量论坛交流 · 一站式云端服务
+          今天，也是充满希望的一天
         </p>
         <div class="flex gap-4 justify-center flex-wrap">
           <!-- 未登录显示注册和登录按钮 -->
@@ -75,6 +77,15 @@ import { computed } from 'vue'
 
 // 判断是否已登录（通过 localStorage 中的 token）
 const isLoggedIn = computed(() => !!localStorage.getItem('lsnuts_token'))
+
+// 获取当前日期，格式为"今天是XXXX年X月X日"
+const currentDate = computed(() => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const day = now.getDate()
+  return `今天是${year}年${month}月${day}日`
+})
 </script>
 
 <style scoped>
