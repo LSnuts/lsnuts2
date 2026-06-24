@@ -1,5 +1,6 @@
 import os  # 文件路径操作
 import uuid  # 生成唯一文件名
+import functools  # 装饰器工具
 
 # 加载环境变量配置
 try:
@@ -12,23 +13,53 @@ import re  # 正则表达式解析@提及
 from sqlalchemy import select, func  # 子查询支持和聚合函数
 import string  # 字符串工具
 import logging  # 日志记录
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS  # 跨域支持
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user  # 用户登录管理
 from flask_socketio import SocketIO, emit  # WebSocket实时通信
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from models import db, User, File, Message, Post, Comment, Notification, PostLike, Bookmark
 from utils import hash_password, verify_password  # 密码加密工具
+from utils.secure_logger import info as secure_info, warning as secure_warning  # 安全日志工具
 from werkzeug.utils import secure_filename  # 安全文件名处理
 
 # 配置日志格式：时间 - 级别 - 消息
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# SECRET_KEY 持久化处理
+def load_or_generate_secret_key():
+    secret_key_path = os.path.join(os.path.dirname(__file__), 'secret.key')
+    
+    # 优先从环境变量获取
+    env_secret_key = os.environ.get('SECRET_KEY')
+    if env_secret_key:
+        return env_secret_key
+    
+    # 尝试从文件读取
+    if os.path.exists(secret_key_path):
+        with open(secret_key_path, 'r') as f:
+            key = f.read().strip()
+            if key:
+                return key
+    
+    # 生成新密钥并写入文件
+    new_key = os.urandom(24).hex()
+    with open(secret_key_path, 'w') as f:
+        f.write(new_key)
+    logger.info(f"[SECRET_KEY] 生成新密钥并保存到 {secret_key_path}")
+    return new_key
+
 # 初始化 Flask 应用
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'])  # 允许跨域请求（携带凭证）
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())  # 会话加密密钥
+app.config['SECRET_KEY'] = load_or_generate_secret_key()  # 会话加密密钥
+
+# Session Cookie 安全配置：httpOnly 防止 XSS 窃取，SameSite 防止 CSRF
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # 数据库配置 - 优先使用环境变量，默认使用 SQLite
 if os.environ.get('DATABASE_URL'):
@@ -48,12 +79,26 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # 静态文件访问路由：用于访问上传的图片和附件
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    safe_filename = secure_filename(filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
+    
+    # 安全校验：确保文件路径不超出 UPLOAD_FOLDER
+    real_upload_folder = os.path.realpath(app.config['UPLOAD_FOLDER'])
+    real_file_path = os.path.realpath(file_path)
+    
+    if not real_file_path.startswith(real_upload_folder + os.sep):
+        return fail('非法访问', 403)
+    
+    if not os.path.exists(file_path):
+        return fail('文件不存在', 404)
+    
+    return send_file(file_path)
 
 # 注册插件
 db.init_app(app)  # 初始化数据库
 login_manager = LoginManager(app)  # 初始化登录管理器
 socketio = SocketIO(app, cors_allowed_origins=['http://localhost:5173', 'http://127.0.0.1:5173'])  # 初始化WebSocket
+limiter = Limiter(get_remote_address, app=app, default_limits=["100 per minute"])
 
 # Flask-Login 回调：根据用户ID从数据库加载用户对象
 @login_manager.user_loader
@@ -69,13 +114,13 @@ def fail(msg, code=400):
 
 # 管理员权限装饰器
 def admin_required(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if not current_user.is_authenticated:
             return fail('请先登录', 401)
         if not current_user.is_admin:
             return fail('无权限', 403)
         return func(*args, **kwargs)
-    wrapper.__name__ = func.__name__
     return wrapper
 
 # 生成唯一的6位数字账号码（保证不重复）
@@ -86,20 +131,21 @@ def generate_account_code():
             return code
 
 # ========== 1. 用户认证接口 ==========
-# 用户登录接口
+# 用户登录接口（限制每分钟最多5次尝试，防止暴力破解）
 @app.route('/api/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def api_login():
-    logger.info(f"[登录] 收到登录请求 - 数据: {request.json}")
+    secure_info(f"[登录] 收到登录请求", request.json)
     data = request.json
     user = User.query.filter_by(username=data['username']).first()  # 根据用户名查找用户
     if not user:
-        logger.warning(f"[登录] 失败 - 用户不存在: {data.get('username')}")
+        secure_warning(f"[登录] 失败 - 用户不存在: {data.get('username')}")
         return jsonify({'code': 400, 'msg': '该用户还未注册'})
     if not verify_password(data['password'], user.password):  # 验证密码
-        logger.warning(f"[登录] 失败 - 密码错误: {data.get('username')}")
+        secure_warning(f"[登录] 失败 - 密码错误: {data.get('username')}")
         return jsonify({'code': 400, 'msg': '密码错误'})
     login_user(user)  # 记录登录状态
-    logger.info(f"[登录] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {user.account_code}")
+    secure_info(f"[登录] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {user.account_code}")
     return jsonify({'code': 200, 'msg': '登录成功', 'data': {
         'id': user.id, 'username': user.username, 'account_code': user.account_code, 'is_admin': user.is_admin
     }})
@@ -107,17 +153,17 @@ def api_login():
 # 用户注册接口
 @app.route('/api/register', methods=['POST'])
 def api_register():
-    logger.info(f"[注册] 收到注册请求 - 数据: {request.json}")
+    secure_info(f"[注册] 收到注册请求", request.json)
     data = request.json
     # 检查用户名是否已被注册
     if User.query.filter_by(username=data['username']).first():
-        logger.warning(f"[注册] 失败 - 用户名已存在: {data.get('username')}")
+        secure_warning(f"[注册] 失败 - 用户名已存在: {data.get('username')}")
         return jsonify({'code': 400, 'msg': '用户名已存在'})
     account_code = generate_account_code()  # 生成唯一账号码
     user = User(username=data['username'], account_code=account_code, password=hash_password(data['password']))
     db.session.add(user)
     db.session.commit()
-    logger.info(f"[注册] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {account_code}")
+    secure_info(f"[注册] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {account_code}")
     return jsonify({'code': 200, 'msg': '注册成功', 'data': {'account_code': account_code}})
 
 # 退出登录接口
@@ -210,14 +256,27 @@ def update_password():
 def user_posts():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    query = Post.query.filter_by(user_id=current_user.id).order_by(Post.create_time.desc())
+    
+    # 子查询：统计每个帖子的评论数和点赞数
+    comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
+    like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()
+    bookmarked_subq = select(Bookmark.post_id).filter(Bookmark.user_id == current_user.id).subquery()
+    
+    query = db.session.query(
+        Post,
+        func.coalesce(comment_count_subq.c.count, 0).label('comment_count'),
+        func.coalesce(like_count_subq.c.count, 0).label('like_count'),
+        Post.id.in_(bookmarked_subq).label('bookmarked')
+    ).outerjoin(comment_count_subq, Post.id == comment_count_subq.c.post_id)\
+     .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)\
+     .filter(Post.user_id == current_user.id)\
+     .order_by(Post.create_time.desc())
+    
     total = query.count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
+    
     data = []
-    for p in items:
-        like_count = PostLike.query.filter_by(post_id=p.id).count()
-        comment_count = Comment.query.filter_by(post_id=p.id).count()
-        bookmarked = Bookmark.query.filter_by(user_id=current_user.id, post_id=p.id).first() is not None
+    for p, comment_count, like_count, bookmarked in items:
         data.append({
             'id': p.id, 'title': p.title, 'content': p.content[:200],
             'create_time': p.create_time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -232,13 +291,29 @@ def user_posts():
 def user_bookmarks():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    query = db.session.query(Bookmark, Post, User.username).join(Post, Bookmark.post_id == Post.id).join(User, Post.user_id == User.id).filter(Bookmark.user_id == current_user.id).order_by(Bookmark.create_time.desc())
+    
+    # 子查询：统计每个帖子的评论数和点赞数
+    comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
+    like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()
+    
+    query = db.session.query(
+        Bookmark,
+        Post,
+        User.username,
+        func.coalesce(comment_count_subq.c.count, 0).label('comment_count'),
+        func.coalesce(like_count_subq.c.count, 0).label('like_count')
+    ).join(Post, Bookmark.post_id == Post.id)\
+     .join(User, Post.user_id == User.id)\
+     .outerjoin(comment_count_subq, Post.id == comment_count_subq.c.post_id)\
+     .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)\
+     .filter(Bookmark.user_id == current_user.id)\
+     .order_by(Bookmark.create_time.desc())
+    
     total = query.count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
+    
     data = []
-    for bm, p, username in items:
-        like_count = PostLike.query.filter_by(post_id=p.id).count()
-        comment_count = Comment.query.filter_by(post_id=p.id).count()
+    for bm, p, username, comment_count, like_count in items:
         data.append({
             'id': p.id, 'title': p.title, 'user': username,
             'create_time': p.create_time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -689,7 +764,7 @@ def forum_edit(post_id):
     
     # 24小时限制
     from datetime import timedelta
-    if datetime.utcnow() - post.create_time > timedelta(hours=24):
+    if datetime.now(timezone.utc) - post.create_time > timedelta(hours=24):
         return jsonify({'code':403, 'msg':'发表超过24小时无法编辑'})
     
     data = request.json
@@ -704,7 +779,7 @@ def forum_edit(post_id):
     post.content = content
     post.tag = tag if tag and tag != 'other' else None
     post.edit_count = (post.edit_count or 0) + 1
-    post.last_edit_time = datetime.utcnow()
+    post.last_edit_time = datetime.now(timezone.utc)
     db.session.commit()
     
     logger.info(f"[论坛编辑] 用户 {current_user.username} 编辑帖子 {post_id}，编辑次数: {post.edit_count}")

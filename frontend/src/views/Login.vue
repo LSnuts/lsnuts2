@@ -37,7 +37,6 @@ const login = async () => {
     const res = await axios.post('/api/login', form.value)
     if (res.data.code === 200) {
       ElMessage.success('登录成功')
-      localStorage.setItem('lsnuts_token', '1')  // 保存登录标记
       emit('login')  // 通知父组件
       router.push('/')  // 跳转到首页
     } else ElMessage.error(res.data.msg)  // 显示后端返回的错误信息

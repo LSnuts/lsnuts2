@@ -9,7 +9,7 @@
       <div class="mb-4 flex flex-col sm:flex-row gap-2">
         <div class="flex gap-2">
           <el-button type="primary" @click="$router.push('/forum/post')" size="default">✍️ 发新帖</el-button>
-          <el-button @click="loadPosts()" size="default">🔄 刷新</el-button>
+          <el-button @click="refreshPosts()" size="default">🔄 刷新</el-button>
         </div>
         <div class="flex-1" />
         <el-input v-model="searchText" placeholder="搜索帖子标题..." size="default" class="!w-full sm:!w-[220px]" clearable @input="onSearch">
@@ -45,64 +45,72 @@
         </div>
       </div>
 
-      <!-- 普通帖子列表 -->
-      <template v-if="normalPosts.length > 0">
-        <!-- PC端：表格列表 -->
-        <el-table v-if="!isMobile" :data="normalPosts" class="w-full">
-          <el-table-column label="标题" min-width="200">
-            <template #default="{ row }">
-              <span class="forum-title-link" @click="$router.push(`/forum/detail/${row.id}`)">{{ row.title }}</span>
-              <el-tag v-if="row.tag" size="small" class="ml-1" :type="tagType(row.tag)">{{ tagLabel(row.tag) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="作者" width="140">
-            <template #default="{ row }">
-              <span class="dark:text-gray-300">{{ row.user }}</span>
-              <el-tag v-if="row.is_admin === 1" type="danger" size="small" class="ml-1">管理员</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="create_time" label="发布时间" width="150" />
-          <el-table-column prop="comment_count" label="评论" width="60" align="center" />
-          <el-table-column label="点赞" width="70" align="center">
-            <template #default="{ row }">
-              <span class="text-red-400">👍 {{ row.like_count }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
+      <!-- 普通帖子列表（无限滚动） -->
+      <div v-infinite-scroll="loadMore" :infinite-scroll-disabled="loading || noMore || posts.length === 0" infinite-scroll-distance="100">
+        <template v-if="normalPosts.length > 0">
+          <!-- PC端：表格列表 -->
+          <el-table v-if="!isMobile" :data="normalPosts" class="w-full">
+            <el-table-column label="标题" min-width="200">
+              <template #default="{ row }">
+                <span class="forum-title-link" @click="$router.push(`/forum/detail/${row.id}`)">{{ row.title }}</span>
+                <el-tag v-if="row.tag" size="small" class="ml-1" :type="tagType(row.tag)">{{ tagLabel(row.tag) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="作者" width="140">
+              <template #default="{ row }">
+                <span class="dark:text-gray-300">{{ row.user }}</span>
+                <el-tag v-if="row.is_admin === 1" type="danger" size="small" class="ml-1">管理员</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="create_time" label="发布时间" width="150" />
+            <el-table-column prop="comment_count" label="评论" width="60" align="center" />
+            <el-table-column label="点赞" width="70" align="center">
+              <template #default="{ row }">
+                <span class="text-red-400">👍 {{ row.like_count }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
 
-        <!-- 手机端：卡片列表 -->
-        <div v-else>
-          <div v-for="post in normalPosts" :key="post.id" class="post-card mb-3 p-3 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800" @click="$router.push(`/forum/detail/${post.id}`)">
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex-1 min-w-0">
-                <div class="font-medium text-gray-800 dark:text-gray-200 truncate">{{ post.title }}</div>
-                <div class="flex items-center gap-1 mt-1 flex-wrap">
-                  <el-tag v-if="post.tag" size="small" :type="tagType(post.tag)">{{ tagLabel(post.tag) }}</el-tag>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ post.user }}</span>
-                  <el-tag v-if="post.is_admin === 1" type="danger" size="small">管理员</el-tag>
+          <!-- 手机端：卡片列表 -->
+          <div v-else>
+            <div v-for="post in normalPosts" :key="post.id" class="post-card mb-3 p-3 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800" @click="$router.push(`/forum/detail/${post.id}`)">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-gray-800 dark:text-gray-200 truncate">{{ post.title }}</div>
+                  <div class="flex items-center gap-1 mt-1 flex-wrap">
+                    <el-tag v-if="post.tag" size="small" :type="tagType(post.tag)">{{ tagLabel(post.tag) }}</el-tag>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ post.user }}</span>
+                    <el-tag v-if="post.is_admin === 1" type="danger" size="small">管理员</el-tag>
+                  </div>
                 </div>
-              </div>
-              <div class="flex-shrink-0 text-right">
-                <div class="text-xs text-gray-400 dark:text-gray-500">{{ post.create_time }}</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  💬 {{ post.comment_count }} &nbsp; 👍 {{ post.like_count }}
+                <div class="flex-shrink-0 text-right">
+                  <div class="text-xs text-gray-400 dark:text-gray-500">{{ post.create_time }}</div>
+                  <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    💬 {{ post.comment_count }} &nbsp; 👍 {{ post.like_count }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </template>
+
+        <!-- 加载中 -->
+        <div v-if="loading && posts.length > 0" class="text-center py-4">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span class="text-gray-400 text-sm ml-1">加载中...</span>
         </div>
-      </template>
+
+        <!-- 没有更多 -->
+        <div v-if="noMore && posts.length > 0" class="text-center py-4 text-gray-400 text-sm">
+          没有更多帖子了
+        </div>
+      </div>
 
       <!-- 空状态 -->
-      <div v-if="posts.length === 0" class="text-center py-12">
+      <div v-if="posts.length === 0 && !loading" class="text-center py-12">
         <div class="text-6xl mb-4">📭</div>
         <div class="text-gray-400 dark:text-gray-500 text-lg mb-2">暂无帖子</div>
         <el-button type="primary" size="default" @click="$router.push('/forum/post')">✍️ 发第一个帖子</el-button>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="total > pageSize" class="flex justify-center mt-4">
-        <el-pagination v-model:current-page="currentPage" :page-size="pageSize" :total="total" layout="prev, pager, next" @current-change="loadPosts" />
       </div>
     </el-card>
   </div>
@@ -110,6 +118,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
 import axios from '../axios'
 
 const posts = ref([])
@@ -118,6 +127,8 @@ const activeTag = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loading = ref(false)
+const noMore = ref(false)
 const isMobile = ref(false)
 let searchTimer = null
 
@@ -130,8 +141,7 @@ const checkMobile = () => {
 
 const filterTag = (tag) => {
   activeTag.value = tag
-  currentPage.value = 1
-  loadPosts()
+  refreshPosts()
 }
 
 const tagType = (tag) => {
@@ -144,25 +154,46 @@ const tagLabel = (tag) => {
   return map[tag] || tag
 }
 
-const loadPosts = async () => {
+const loadPosts = async (append = false) => {
+  if (loading.value) return
+  loading.value = true
   try {
     const res = await axios.get('/api/forum/list', {
       params: { search: searchText.value, page: currentPage.value, per_page: pageSize.value, tag: activeTag.value }
     })
-    posts.value = res.data.data
+    const newPosts = res.data.data || []
     total.value = res.data.total || 0
+    if (append) {
+      posts.value.push(...newPosts)
+    } else {
+      posts.value = newPosts
+    }
+    noMore.value = posts.value.length >= total.value
   } catch (e) {}
+  loading.value = false
+}
+
+const refreshPosts = () => {
+  currentPage.value = 1
+  noMore.value = false
+  loadPosts(false)
+}
+
+const loadMore = () => {
+  if (noMore.value || loading.value) return
+  currentPage.value++
+  loadPosts(true)
 }
 
 const onSearch = () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { currentPage.value = 1; loadPosts() }, 300)
+  searchTimer = setTimeout(() => { refreshPosts() }, 300)
 }
 
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  loadPosts()
+  loadPosts(false)
 })
 
 onUnmounted(() => {

@@ -4,8 +4,8 @@ import axios from '../axios'
 import { API_BASE } from '../utils/constants'
 
 export const useUserStore = defineStore('user', () => {
-  const userInfo = ref({ is_admin: 0 })
-  const isLoggedIn = ref(!!localStorage.getItem('lsnuts_token'))
+  const userInfo = ref({})
+  const isLoggedIn = ref(false)
   const unreadCount = ref(0)
   const notifications = ref([])
 
@@ -15,19 +15,13 @@ export const useUserStore = defineStore('user', () => {
   })
 
   const fetchUserInfo = async () => {
-    const token = localStorage.getItem('lsnuts_token')
-    isLoggedIn.value = !!token
-    if (!token) {
-      userInfo.value = { is_admin: 0 }
-      return
-    }
     try {
       const res = await axios.get('/api/user/info')
       userInfo.value = res.data.data
+      isLoggedIn.value = true
     } catch (e) {
-      localStorage.removeItem('lsnuts_token')
       isLoggedIn.value = false
-      userInfo.value = { is_admin: 0 }
+      userInfo.value = {}
     }
   }
 
@@ -58,9 +52,8 @@ export const useUserStore = defineStore('user', () => {
 
   const logout = async () => {
     try { await axios.get('/api/logout') } catch (e) {}
-    localStorage.removeItem('lsnuts_token')
     isLoggedIn.value = false
-    userInfo.value = { is_admin: 0 }
+    userInfo.value = {}
   }
 
   return {

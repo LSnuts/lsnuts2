@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API_BASE } from './utils/constants'
+import { useUserStore } from './stores/user'
 
 const getBaseURL = () => {
   return API_BASE
@@ -11,20 +12,12 @@ const instance = axios.create({
   withCredentials: true
 })
 
-// 请求拦截器：自动添加 Authorization header
-instance.interceptors.request.use(config => {
-  const token = localStorage.getItem('lsnuts_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
 instance.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('lsnuts_token')
+      const store = useUserStore()
+      store.logout()
       window.location.href = '/login'
     }
     return Promise.reject(err)

@@ -193,13 +193,47 @@ const changePassword = async () => {
 }
 
 const triggerAvatarInput = () => { avatarInput.value?.click() }
-const onAvatarFile = (e) => {
+
+// 图片压缩：限制最大尺寸，减少内存占用和上传体积
+const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height)
+        width *= ratio
+        height *= ratio
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('压缩失败'))
+      }, 'image/jpeg', quality)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
+const onAvatarFile = async (e) => {
   const file = e.target.files[0]
   if (!file) return
   if (file.size > 5 * 1024 * 1024) { ElMessage.warning('图片大小不能超过5M'); return }
-  const reader = new FileReader()
-  reader.onload = (ev) => { cropSrc.value = ev.target.result; cropVisible.value = true; nextTick(() => { resetCrop() }) }
-  reader.readAsDataURL(file)
+  try {
+    const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
+    const reader = new FileReader()
+    reader.onload = (ev) => { cropSrc.value = ev.target.result; cropVisible.value = true; nextTick(() => { resetCrop() }) }
+    reader.readAsDataURL(compressedBlob)
+  } catch {
+    ElMessage.error('图片处理失败')
+  }
   e.target.value = ''
 }
 const resetCrop = () => {
@@ -230,13 +264,13 @@ const doCropAndUpload = () => {
   canvas.toBlob(async (blob) => {
     uploadingAvatar.value = true
     try {
-      const formData = new FormData(); formData.append('avatar', blob, 'avatar.png')
+      const formData = new FormData(); formData.append('avatar', blob, 'avatar.jpg')
       await axios.post('/api/user/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       ElMessage.success('头像更新成功')
       cropVisible.value = false; loadUserInfo(); emit('avatar-change')
     } catch (e) { ElMessage.error(e.response?.data?.msg || '上传失败') }
     finally { uploadingAvatar.value = false }
-  }, 'image/png')
+  }, 'image/jpeg', 0.85)
 }
 watch(cropScale, (val) => {
   if (!cropImage.value) return

@@ -104,7 +104,7 @@
 // 导入响应式 API、请求工具、消息提示和路由
 import { ref, onMounted } from 'vue'
 import axios from '../axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -141,20 +141,26 @@ const getMyId = async () => {
 
 // 删除指定用户
 const del = async (id) => {
-  await axios.delete(`/api/admin/delete/${id}`)
-  ElMessage.success('删除成功')
-  getUsers()
+  try {
+    await ElMessageBox.confirm('删除用户将同时删除其所有帖子、评论、文件和消息，此操作不可恢复，确定继续吗？', '确认删除用户', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+    await axios.delete(`/api/admin/delete/${id}`)
+    ElMessage.success('删除成功')
+    getUsers()
+  } catch (e) { if (e !== 'cancel') throw e }
 }
 
 // 重置用户头像为默认
 const resetAvatar = async (id) => {
-  const res = await axios.post(`/api/admin/reset_avatar/${id}`)
-  if (res.data.code === 200) {
-    ElMessage.success('头像已重置为默认')
-    getUsers()
-  } else {
-    ElMessage.error(res.data.msg)
-  }
+  try {
+    await ElMessageBox.confirm('确定重置该用户的头像为默认头像吗？', '确认重置头像', { type: 'warning' })
+    const res = await axios.post(`/api/admin/reset_avatar/${id}`)
+    if (res.data.code === 200) {
+      ElMessage.success('头像已重置为默认')
+      getUsers()
+    } else {
+      ElMessage.error(res.data.msg)
+    }
+  } catch (e) { if (e !== 'cancel') throw e }
 }
 
 // 查看帖子详情（跳转到论坛详情页）
@@ -164,9 +170,12 @@ const viewPost = (id) => {
 
 // 删除帖子
 const delPost = async (id) => {
-  await axios.delete(`/api/admin/delete_post/${id}`)
-  ElMessage.success('删除成功')
-  getPosts()
+  try {
+    await ElMessageBox.confirm('删除帖子将同时删除其所有评论和点赞，此操作不可恢复，确定继续吗？', '确认删除帖子', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+    await axios.delete(`/api/admin/delete_post/${id}`)
+    ElMessage.success('删除成功')
+    getPosts()
+  } catch (e) { if (e !== 'cancel') throw e }
 }
 
 // 置顶/取消置顶帖子

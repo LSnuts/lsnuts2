@@ -7,7 +7,12 @@
     </div>
 
     <el-card class="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-200">
-      <div v-if="bookmarks.length === 0" class="text-center py-8 text-gray-400 dark:text-gray-500">暂无收藏</div>
+      <div v-if="bookmarks.length === 0" class="text-center py-12">
+        <div class="text-6xl mb-4">⭐</div>
+        <div class="text-gray-400 dark:text-gray-500 text-lg mb-2">暂无收藏</div>
+        <div class="text-sm text-gray-400 dark:text-gray-500 mb-4">看到喜欢的帖子，点击收藏按钮即可保存到这里</div>
+        <el-button type="primary" size="small" @click="$router.push('/forum')">去论坛逛逛</el-button>
+      </div>
       <div v-else class="space-y-3">
         <div v-for="b in bookmarks" :key="b.id" class="p-3 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" @click="$router.push(`/forum/detail/${b.id}`)">
           <div class="text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate">{{ b.title }}</div>
