@@ -1,9 +1,9 @@
 <template>
   <el-container :class="['app-container', { dark: isDark }]" style="min-height: 100vh">
     <!-- 桌面端顶部导航栏 -->
-    <el-header class="header desktop-header">
+    <el-header class="header desktop-header" ref="desktopHeaderRef">
       <div class="logo">☁️ lsnuts 云端平台</div>
-      <el-menu mode="horizontal" :default-active="$route.path" class="nav" router>
+      <el-menu :key="menuKey" mode="horizontal" :default-active="$route.path" class="nav" router>
         <el-menu-item index="/">首页</el-menu-item>
         <el-menu-item index="/drive">网盘</el-menu-item>
         <el-menu-item index="/forum">论坛</el-menu-item>
@@ -100,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from './stores/user'
@@ -110,6 +110,17 @@ const router = useRouter()
 const isDark = ref(localStorage.getItem('lsnuts_dark') === '1')
 const drawerVisible = ref(false)
 const notifVisible = ref(false)
+const isMobile = ref(false)
+const menuKey = ref(0)
+
+const checkMobile = () => {
+  const wasMobile = isMobile.value
+  isMobile.value = window.innerWidth < 768
+  // 当从移动端切换回桌面端时，强制重新渲染菜单
+  if (wasMobile && !isMobile.value) {
+    menuKey.value++
+  }
+}
 
 const toggleDark = () => {
   isDark.value = !isDark.value
@@ -165,17 +176,28 @@ const deleteNotif = async (id) => {
 watch(() => store.isLoggedIn, (val) => { if (val) store.fetchUnreadCount() })
 
 onMounted(() => {
+  // 响应式导航检测
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+  
+  // 深色模式初始化
   document.documentElement.classList.toggle('dark', isDark.value)
+  
+  // 用户信息初始化
   store.fetchUserInfo()
   store.fetchUnreadCount()
   setInterval(() => store.fetchUnreadCount(), 30000)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
 <style>
 /* 桌面端导航栏 - 默认显示 */
 .desktop-header {
-  display: flex;
+  display: flex !important;
   align-items: center;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
@@ -204,13 +226,20 @@ onMounted(() => {
 
 /* 响应式：移动端显示移动端导航，隐藏桌面端导航 */
 @media (max-width: 768px) {
-  :deep(.header.desktop-header) {
-    display: none;
+  .desktop-header {
+    display: none !important;
   }
   .mobile-header {
-    display: flex;
+    display: flex !important;
   }
   .main { min-height: calc(100vh - 50px); }
+}
+
+/* 确保桌面端始终隐藏移动端导航 */
+@media (min-width: 769px) {
+  .mobile-header {
+    display: none !important;
+  }
 }
 
 .el-table { font-size: 12px; }

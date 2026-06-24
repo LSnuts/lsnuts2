@@ -7,11 +7,20 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:5000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            if (req.headers.cookie) {
+              proxyReq.setHeader('cookie', req.headers.cookie)
+            }
+          })
+        }
       },
       '/static': {
         target: 'http://127.0.0.1:5000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       }
     }
   }

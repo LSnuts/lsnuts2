@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # 初始化 Flask 应用
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173'])  # 允许跨域请求（携带凭证）
+CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'])  # 允许跨域请求（携带凭证）
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())  # 会话加密密钥
 
 # 数据库配置 - 优先使用环境变量，默认使用 SQLite
