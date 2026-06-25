@@ -8,19 +8,19 @@
         <el-menu-item index="/drive">网盘</el-menu-item>
         <el-menu-item index="/forum">论坛</el-menu-item>
         <el-menu-item index="/about">关于本站</el-menu-item>
-        <template v-if="!store.isLoggedIn">
+        <template v-if="!userStore.isLoggedIn">
           <el-menu-item index="/login">登录</el-menu-item>
           <el-menu-item index="/register">注册</el-menu-item>
         </template>
         <template v-else>
           <el-menu-item index="/profile">个人中心</el-menu-item>
-          <el-menu-item v-if="store.userInfo.is_admin === 1" index="/admin">管理后台</el-menu-item>
+          <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">管理后台</el-menu-item>
           <el-menu-item @click="handleLogout">退出账户</el-menu-item>
         </template>
       </el-menu>
       <div class="flex items-center gap-2 ml-auto">
         <!-- 通知铃铛 -->
-        <el-badge v-if="store.isLoggedIn" :value="store.unreadCount" :hidden="store.unreadCount === 0" class="mr-2">
+        <el-badge v-if="userStore.isLoggedIn" :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" class="mr-2">
           <el-button circle size="small" @click="showNotifications"><span class="text-lg">🔔</span></el-button>
         </el-badge>
         <!-- 深色模式切换 -->
@@ -35,7 +35,7 @@
       <el-button class="menu-btn" @click="drawerVisible = true">☰</el-button>
       <div class="logo">☁️ lsnuts</div>
       <div class="flex items-center gap-1">
-        <el-badge v-if="store.isLoggedIn" :value="store.unreadCount" :hidden="store.unreadCount === 0">
+        <el-badge v-if="userStore.isLoggedIn" :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0">
           <el-button circle size="small" @click="showNotifications"><span class="text-lg">🔔</span></el-button>
         </el-badge>
         <el-button circle size="small" @click="toggleDark">
@@ -59,7 +59,7 @@
           </template>
           <template v-else>
             <el-menu-item index="/profile">👤 个人中心</el-menu-item>
-            <el-menu-item v-if="store.userInfo.is_admin === 1" index="/admin">⚙️ 管理后台</el-menu-item>
+            <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">⚙️ 管理后台</el-menu-item>
             <el-menu-item @click="handleLogout">🚪 退出账户</el-menu-item>
           </template>
         </el-menu>
@@ -68,9 +68,9 @@
 
     <!-- 通知弹窗 -->
     <el-dialog v-model="notifVisible" title="📬 消息通知" width="90% max-w-[420px]" @open="onNotifOpen">
-      <div v-if="store.notifications.length === 0" class="text-center text-gray-400 py-6">暂无通知</div>
+      <div v-if="notifStore.notifications.length === 0" class="text-center text-gray-400 py-6">暂无通知</div>
       <div v-else class="space-y-3">
-        <div v-for="n in store.notifications" :key="n.id" class="p-3 rounded border relative group" :class="n.is_read ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'">
+        <div v-for="n in notifStore.notifications" :key="n.id" class="p-3 rounded border relative group" :class="n.is_read ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'">
           <div class="text-sm font-medium text-gray-800 dark:text-gray-200">
             {{ n.replier }}
             <span class="text-blue-600 dark:text-blue-400">{{ n.type === 'post_reply' ? '回复了你的帖子' : n.type === 'mention' ? '在评论中@了你' : '回复了你的评论' }}</span>
@@ -87,14 +87,14 @@
         </div>
       </div>
       <template #footer>
-        <el-button v-if="store.notifications.length > 0" size="small" @click="markAllRead">全部标为已读</el-button>
+        <el-button v-if="notifStore.notifications.length > 0" size="small" @click="markAllRead">全部标为已读</el-button>
         <el-button size="small" @click="notifVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
     <!-- 主内容区域 -->
     <el-main class="main">
-      <router-view @login="handleLogin" @avatar-change="store.fetchUserInfo" />
+      <router-view @login="handleLogin" @avatar-change="userStore.fetchUserInfo" />
     </el-main>
   </el-container>
 </template>
@@ -104,8 +104,10 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from './stores/user'
+import { useNotificationStore } from './stores/notification'
 
-const store = useUserStore()
+const userStore = useUserStore()
+const notifStore = useNotificationStore()
 const router = useRouter()
 const isDark = ref(localStorage.getItem('lsnuts_dark') === '1')
 const drawerVisible = ref(false)
@@ -116,7 +118,6 @@ const menuKey = ref(0)
 const checkMobile = () => {
   const wasMobile = isMobile.value
   isMobile.value = window.innerWidth < 768
-  // 当从移动端切换回桌面端时，强制重新渲染菜单
   if (wasMobile && !isMobile.value) {
     menuKey.value++
   }
@@ -129,7 +130,8 @@ const toggleDark = () => {
 }
 
 const handleLogout = async () => {
-  await store.logout()
+  await userStore.logout()
+  notifStore.reset()
   drawerVisible.value = false
   router.push('/login')
 }
@@ -139,20 +141,23 @@ const handleDrawerSelect = (index) => {
   router.push(index)
 }
 
-const handleLogin = () => { store.fetchUserInfo() }
+const handleLogin = () => { 
+  userStore.fetchUserInfo() 
+  notifStore.fetchUnreadCount()
+}
 
 const showNotifications = () => {
-  store.fetchNotifications()
+  notifStore.fetchNotifications()
   notifVisible.value = true
 }
 
 const onNotifOpen = () => {
-  store.fetchNotifications()
-  store.unreadCount = 0
+  notifStore.fetchNotifications()
+  notifStore.markAllRead()
 }
 
 const markAllRead = async () => {
-  await store.markAllRead()
+  await notifStore.markAllRead()
   notifVisible.value = false
 }
 
@@ -166,27 +171,24 @@ const goToPost = (n) => {
 
 const deleteNotif = async (id) => {
   try {
-    await store.deleteNotification(id)
+    await notifStore.deleteNotification(id)
     ElMessage.success('已删除')
   } catch (e) {
     ElMessage.error('删除失败')
   }
 }
 
-watch(() => store.isLoggedIn, (val) => { if (val) store.fetchUnreadCount() })
+watch(() => userStore.isLoggedIn, (val) => { 
+  if (val) notifStore.fetchUnreadCount() 
+})
 
 onMounted(() => {
-  // 响应式导航检测
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  
-  // 深色模式初始化
   document.documentElement.classList.toggle('dark', isDark.value)
-  
-  // 用户信息初始化
-  store.fetchUserInfo()
-  store.fetchUnreadCount()
-  setInterval(() => store.fetchUnreadCount(), 30000)
+  userStore.fetchUserInfo()
+  notifStore.fetchUnreadCount()
+  setInterval(() => notifStore.fetchUnreadCount(), 30000)
 })
 
 onUnmounted(() => {

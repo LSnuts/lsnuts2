@@ -30,6 +30,27 @@
         </div>
       </div>
     </div>
+
+    <!-- 公告展示区 -->
+    <div v-if="announcements.length > 0" class="max-w-5xl mx-auto px-4 -mt-4 pb-6">
+      <div v-for="ann in announcements" :key="ann.id" 
+           class="mb-3 p-4 rounded-lg border"
+           :class="{
+             'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800': ann.priority === 2,
+             'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800': ann.priority === 1,
+             'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700': ann.priority === 0
+           }">
+        <div class="flex items-center gap-2 mb-1">
+          <span v-if="ann.priority === 2" class="text-red-500 font-bold text-sm">🔴 紧急</span>
+          <span v-else-if="ann.priority === 1" class="text-orange-500 font-bold text-sm">🟠 重要</span>
+          <span v-if="ann.is_pinned" class="text-orange-400 text-sm">📌 置顶</span>
+          <span class="font-bold text-gray-800 dark:text-gray-200">{{ ann.title }}</span>
+        </div>
+        <div class="text-sm text-gray-600 dark:text-gray-400">{{ ann.content }}</div>
+        <div class="text-xs text-gray-400 mt-2">{{ ann.create_time }}</div>
+      </div>
+    </div>
+
     <!-- 功能卡片展示区 -->
     <div class="max-w-5xl mx-auto px-4 -mt-6 pb-10">
       <el-row :gutter="20">
@@ -73,10 +94,13 @@
 
 <script setup>
 // 导入计算属性，根据登录状态显示不同按钮
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import axios from '../axios'
 
 // 判断是否已登录（通过 localStorage 中的 token）
 const isLoggedIn = computed(() => !!localStorage.getItem('lsnuts_token'))
+
+const announcements = ref([])
 
 // 获取当前日期，格式为"今天是XXXX年X月X日"
 const currentDate = computed(() => {
@@ -85,6 +109,17 @@ const currentDate = computed(() => {
   const month = now.getMonth() + 1
   const day = now.getDate()
   return `今天是${year}年${month}月${day}日`
+})
+
+const loadAnnouncements = async () => {
+  try {
+    const res = await axios.get('/api/announcements/public')
+    announcements.value = res.data.data || []
+  } catch (e) {}
+}
+
+onMounted(() => {
+  loadAnnouncements()
 })
 </script>
 

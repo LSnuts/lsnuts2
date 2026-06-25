@@ -15,6 +15,8 @@ class User(UserMixin, db.Model):
     create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # 注册时间
     is_admin = db.Column(db.Integer, default=0)  # 权限标识：0=普通用户，1=管理员
     avatar = db.Column(db.String(255))  # 头像文件路径（为空则使用默认头像）
+    reset_token = db.Column(db.String(64))  # 密码重置token
+    reset_expire = db.Column(db.DateTime)  # token过期时间
 
 # 网盘文件表 - 存储用户上传的文件信息
 class File(db.Model):
@@ -24,6 +26,9 @@ class File(db.Model):
     file_path = db.Column(db.String(255), nullable=False)  # 服务器上的存储路径
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 上传者ID，关联用户表
     upload_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # 上传时间
+    category = db.Column(db.String(50), default='默认')  # 文件分类
+    share_token = db.Column(db.String(64))  # 分享链接token
+    share_expire = db.Column(db.DateTime)  # 分享过期时间
     
     user = db.relationship('User', backref=db.backref('files', lazy=True, cascade='all, delete-orphan'))  # 关联用户对象
 
@@ -105,3 +110,14 @@ class Bookmark(db.Model):
     post = db.relationship('Post')
     
     __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='uq_user_bookmark'),)
+
+# 公告表 - 存储系统公告
+class Announcement(db.Model):
+    __tablename__ = 'announcements'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)  # 公告标题
+    content = db.Column(db.Text, nullable=False)  # 公告内容
+    priority = db.Column(db.Integer, default=0)  # 优先级：0=普通，1=重要，2=紧急
+    is_pinned = db.Column(db.Integer, default=0)  # 是否置顶
+    create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    update_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

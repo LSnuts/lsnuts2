@@ -91,49 +91,29 @@
       </template>
 
       <div class="space-y-4">
-        <template v-for="(c, index) in comments" :key="c.id">
-          <div :id="'comment-'+c.id" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 comment-item">
-            <div class="flex items-start gap-3">
-              <img :src="getAvatar(c.avatar)" :alt="c.user" class="w-[10vw] h-[10vw] max-w-[48px] max-h-[48px] min-w-[24px] min-h-[24px] object-cover flex-shrink-0 mt-0.5 rounded-full" />
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.user || '匿名用户' }}</span>
-                  <el-tag type="info" size="small">{{ index + 1 }}楼</el-tag>
-                  <el-tag v-if="c.is_admin === 1" type="danger" size="small">管理员</el-tag>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 ml-auto">{{ c.create_time }}</span>
-                </div>
-                <div class="text-sm leading-relaxed p-3 rounded bg-gray-100 dark:bg-gray-700 markdown-body" v-html="renderMd(c.content)"></div>
-                <div class="mt-2">
-                  <el-button size="small" type="primary" class="reply-btn" @click="toggleReply(c)">💬 回复</el-button>
-                </div>
-                <div v-if="replyTarget === c.id" class="mt-2">
-                  <div class="text-xs text-gray-400 dark:text-gray-500 mb-2">↳ 回复 {{ c.user || '匿名用户' }}：</div>
-                  <el-input v-model="replyContent[c.id]" type="textarea" :rows="2" placeholder="写下你的回复..." size="small" />
-                  <div class="flex justify-end gap-2 mt-2">
-                    <el-button size="small" @click="replyTarget = null">取消</el-button>
-                    <el-button size="small" type="primary" @click="submitReply(c)">💬 回复</el-button>
-                  </div>
-                </div>
-                <div v-if="c.replies && c.replies.length" class="mt-3 pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-2">
-                  <div v-for="reply in c.replies" :key="reply.id" class="bg-blue-50/50 dark:bg-gray-750 rounded p-2.5 border border-blue-100 dark:border-gray-700">
-                    <div class="flex items-start">
-                      <div class="flex-1">
-                        <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                          <span class="font-medium text-blue-600 dark:text-blue-400 text-xs">{{ reply.user }}</span>
-                          <span class="text-[11px] text-gray-400 dark:text-gray-500">回复</span>
-                          <span class="font-medium text-gray-700 dark:text-gray-300 text-xs">{{ c.user }}</span>
-                          <el-tag v-if="reply.is_admin === 1" type="danger" size="small">管理员</el-tag>
-                          <span class="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">{{ reply.create_time }}</span>
-                        </div>
-                        <div class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-0.5 markdown-body" v-html="renderMd(reply.content)"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
+        <CommentTree
+          :comments="comments"
+          :all-comments="flatComments"
+          :highlight-id="highlightCommentId"
+          @reply="handleReply"
+        />
+      </div>
+
+      <div v-if="showReplyForm" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">
+          ↳ 回复 {{ replyTargetComment?.user || '匿名用户' }}：
+        </div>
+        <el-input
+          v-model="replyContentText"
+          type="textarea"
+          :rows="2"
+          placeholder="写下你的回复..."
+          size="small"
+        />
+        <div class="flex justify-end gap-2 mt-2">
+          <el-button size="small" @click="cancelReply">取消</el-button>
+          <el-button size="small" type="primary" @click="submitReply">💬 回复</el-button>
+        </div>
       </div>
 
       <div v-if="comments.length === 0" class="text-center py-10">
@@ -160,19 +140,22 @@ import { ElMessage } from 'element-plus'
 import { renderMarkdown } from '../markdown.js'
 import { tagType, tagLabel } from '../utils/helpers'
 import { API_BASE } from '../utils/constants'
+import CommentTree from '../components/CommentTree.vue'
 
 const route = useRoute()
 const router = useRouter()
 const post = ref({})
 const comments = ref([])
 const content = ref('')
-const replyContent = reactive({})
-const replyTarget = ref(null)
+const replyContentText = ref('')
+const replyTargetComment = ref(null)
+const showReplyForm = ref(false)
 const editVisible = ref(false)
 const editing = ref(false)
 const editForm = ref({ title: '', content: '', tag: '' })
 const showBackTop = ref(false)
 const currentUserId = ref(null)
+const highlightCommentId = ref(null)
 
 const defaultAvatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"%3E%3Crect fill="%239CA3AF" width="24" height="24" rx="2"/%3E%3Ctext fill="white" font-family="sans-serif" font-size="12" font-weight="bold" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EU%3C/text%3E%3C/svg%3E'
 
@@ -186,15 +169,29 @@ const canEdit = computed(() => {
 
 const countReplies = (commentList) => {
   let count = 0
-  for (const c of commentList) { count += 1; if (c.replies) count += c.replies.length }
+  const traverse = (list) => {
+    for (const c of list) {
+      count += 1
+      if (c.replies) traverse(c.replies)
+    }
+  }
+  traverse(commentList)
   return count
 }
 
 const totalCommentCount = computed(() => countReplies(comments.value))
 
-const clearReplyContent = () => {
-  Object.keys(replyContent).forEach(key => delete replyContent[key])
-}
+const flatComments = computed(() => {
+  const result = []
+  const traverse = (list) => {
+    for (const c of list) {
+      result.push(c)
+      if (c.replies) traverse(c.replies)
+    }
+  }
+  traverse(comments.value)
+  return result
+})
 
 const getDetail = async () => {
   try {
@@ -203,12 +200,16 @@ const getDetail = async () => {
     post.value.user_id = res.data.data.post.user_id
     currentUserId.value = res.data.data.current_user_id
     comments.value = res.data.data.comments
-    clearReplyContent()
-    replyTarget.value = null
+    cancelReply()
   } catch (e) {}
   nextTick(() => {
     const hash = route.hash || window.location.hash
-    if (hash && hash.startsWith('#comment-')) { scrollToEl(hash.slice(1)) }
+    if (hash && hash.startsWith('#comment-')) {
+      const id = parseInt(hash.slice(9))
+      highlightCommentId.value = id
+      scrollToEl(hash.slice(1))
+      setTimeout(() => { highlightCommentId.value = null }, 3000)
+    }
   })
 }
 
@@ -264,16 +265,30 @@ const sendComment = async () => {
   content.value = ''; getDetail()
 }
 
-const toggleReply = (c) => {
-  replyTarget.value = replyTarget.value === c.id ? null : c.id
-  if (replyTarget.value && !replyContent[c.id]) replyContent[c.id] = ''
+const handleReply = (comment) => {
+  replyTargetComment.value = comment
+  replyContentText.value = ''
+  showReplyForm.value = true
+  nextTick(() => {
+    document.getElementById('reply-input')?.focus()
+  })
 }
 
-const submitReply = async (c) => {
-  if (!(replyContent[c.id] || '').trim()) { ElMessage.warning('请输入回复内容'); return }
-  await axios.post(`/api/forum/comment/${route.params.id}`, { content: replyContent[c.id], parent_id: c.id })
+const cancelReply = () => {
+  replyTargetComment.value = null
+  replyContentText.value = ''
+  showReplyForm.value = false
+}
+
+const submitReply = async () => {
+  if (!replyContentText.value.trim()) { ElMessage.warning('请输入回复内容'); return }
+  await axios.post(`/api/forum/comment/${route.params.id}`, { 
+    content: replyContentText.value, 
+    parent_id: replyTargetComment.value.id 
+  })
   ElMessage.success('回复成功')
-  replyContent[c.id] = ''; replyTarget.value = null; getDetail()
+  cancelReply()
+  getDetail()
 }
 
 onMounted(() => { getDetail(); window.addEventListener('scroll', onScroll) })

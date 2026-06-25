@@ -9,6 +9,9 @@
           <el-button type="primary" @click="login" :loading="loading" class="w-full md:w-auto">登录</el-button>
           <el-button @click="$router.push('/register')" class="mt-2 md:mt-0 md:ml-2">去注册</el-button>
         </el-form-item>
+        <div class="text-center mt-2">
+          <router-link to="/forgot-password" class="text-blue-500 text-sm hover:underline">忘记密码？</router-link>
+        </div>
       </el-form>
     </el-card>
   </div>
