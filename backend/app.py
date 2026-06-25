@@ -54,7 +54,7 @@ def load_or_generate_secret_key():
 
 # 初始化 Flask 应用
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'])  # 允许跨域请求（携带凭证）
+CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175'])  # 允许跨域请求（携带凭证）
 app.config['SECRET_KEY'] = load_or_generate_secret_key()  # 会话加密密钥
 
 # Session Cookie 安全配置：httpOnly 防止 XSS 窃取，SameSite 防止 CSRF
@@ -323,17 +323,8 @@ def user_bookmarks():
     return jsonify({'code': 200, 'data': data, 'total': total, 'page': page, 'per_page': per_page})
 
 # ========== 2. 管理员接口 ==========
-# 创建默认管理员账号（仅首次运行调用）
-@app.route('/api/admin/create', methods=['POST'])
-def create_admin():
-    # 如果系统中已有管理员，需要管理员权限才能创建新管理员
-    if User.query.filter_by(is_admin=1).first():
-        if not current_user.is_authenticated or not current_user.is_admin:
-            return fail('无权限', 403)
-    admin = User(username='admin', account_code=generate_account_code(), password=hash_password('admin123'), is_admin=1)
-    db.session.add(admin)
-    db.session.commit()
-    return ok(msg='管理员创建成功！账号：admin 密码：admin123')
+# 注：管理员账号请通过后端脚本 create_admin.py 创建
+# python create_admin.py [用户名] [密码]
 
 # 管理员获取所有用户列表
 @app.route('/api/admin/users')

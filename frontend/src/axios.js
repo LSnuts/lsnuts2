@@ -1,9 +1,10 @@
 import axios from 'axios'
-import { API_BASE } from './utils/constants'
-import { useUserStore } from './stores/user'
 
 const getBaseURL = () => {
-  return API_BASE
+  if (import.meta.env.DEV) {
+    return ''
+  }
+  return import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000'
 }
 
 const instance = axios.create({
@@ -16,9 +17,11 @@ instance.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      const store = useUserStore()
-      store.logout()
-      window.location.href = '/login'
+      // 防止无限循环：只有不在登录页面时才跳转
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem?.('lsnuts_token')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }

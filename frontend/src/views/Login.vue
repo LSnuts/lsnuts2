@@ -20,9 +20,11 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../axios'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '../stores/user'
 
 const emit = defineEmits(['login'])  // 登录成功后通知父组件刷新用户信息
 const router = useRouter()
+const userStore = useUserStore()
 const form = ref({ username: '', password: '' })  // 登录表单数据
 const loading = ref(false)  // 登录按钮加载状态
 
@@ -37,9 +39,13 @@ const login = async () => {
     const res = await axios.post('/api/login', form.value)
     if (res.data.code === 200) {
       ElMessage.success('登录成功')
+      // 立即刷新用户信息
+      await userStore.fetchUserInfo()
       emit('login')  // 通知父组件
       router.push('/')  // 跳转到首页
     } else ElMessage.error(res.data.msg)  // 显示后端返回的错误信息
+  } catch (e) {
+    ElMessage.error(e.response?.data?.msg || '登录失败')
   } finally { loading.value = false }
 }
 </script>

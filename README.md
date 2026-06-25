@@ -108,16 +108,17 @@ npm run dev
 
 ### 初始账号
 
-使用 POST 方法访问以下接口创建默认管理员账号：
-```
-POST http://127.0.0.1:5000/api/admin/create
+管理员账号通过后端脚本创建，不暴露 HTTP 接口：
+
+```bash
+cd backend
+python create_admin.py          # 使用默认账号 admin / admin123
+python create_admin.py admin mypassword  # 自定义用户名和密码
 ```
 
-默认管理员：
-- 用户名：`admin`
-- 密码：`admin123`
+若管理员已存在，脚本会询问是否重置密码。
 
-> **注意**：首次部署时，系统中无管理员时可直接调用此接口。若已存在管理员，则需要管理员权限才能调用。
+> **安全提示**：`create_admin.py` 为 CLI 脚本，直接在服务器上运行，不对外开放任何管理员创建接口。
 
 ## 🔧 配置说明
 

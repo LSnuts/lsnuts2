@@ -92,15 +92,15 @@
             <defs>
               <mask id="cropMaskS">
                 <rect width="320" height="320" fill="white" />
-                <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskW" :height="cropMaskH" rx="4" fill="black" />
+                <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskSize" :height="cropMaskSize" rx="4" fill="black" />
               </mask>
             </defs>
             <rect width="320" height="320" fill="rgba(0,0,0,0.55)" mask="url(#cropMaskS)" />
-            <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskW" :height="cropMaskH" rx="4" fill="none" stroke="#409eff" stroke-width="2" />
-            <line :x1="cropMaskX + cropMaskW / 3" :y1="cropMaskY" :x2="cropMaskX + cropMaskW / 3" :y2="cropMaskY + cropMaskH" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX + cropMaskW * 2/3" :y1="cropMaskY" :x2="cropMaskX + cropMaskW * 2/3" :y2="cropMaskY + cropMaskH" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskH / 3" :x2="cropMaskX + cropMaskW" :y2="cropMaskY + cropMaskH / 3" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskH * 2/3" :x2="cropMaskX + cropMaskW" :y2="cropMaskY + cropMaskH * 2/3" stroke="white" stroke-width="0.5" opacity="0.5" />
+            <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskSize" :height="cropMaskSize" rx="4" fill="none" stroke="#409eff" stroke-width="2" />
+            <line :x1="cropMaskX + cropMaskSize / 3" :y1="cropMaskY" :x2="cropMaskX + cropMaskSize / 3" :y2="cropMaskY + cropMaskSize" stroke="white" stroke-width="0.5" opacity="0.5" />
+            <line :x1="cropMaskX + cropMaskSize * 2/3" :y1="cropMaskY" :x2="cropMaskX + cropMaskSize * 2/3" :y2="cropMaskY + cropMaskSize" stroke="white" stroke-width="0.5" opacity="0.5" />
+            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskSize / 3" :x2="cropMaskX + cropMaskSize" :y2="cropMaskY + cropMaskSize / 3" stroke="white" stroke-width="0.5" opacity="0.5" />
+            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskSize * 2/3" :x2="cropMaskX + cropMaskSize" :y2="cropMaskY + cropMaskSize * 2/3" stroke="white" stroke-width="0.5" opacity="0.5" />
           </svg>
           <div class="absolute inset-0 cursor-move" @mousedown="startDrag" />
         </div>
@@ -145,6 +145,7 @@ const cropX = ref(0)
 const cropY = ref(0)
 const cropW = ref(300)
 const cropH = ref(300)
+const cropMaskSize = 220 // 固定裁剪框大小
 const dragStart = ref({ x: 0, y: 0, imgX: 0, imgY: 0 })
 const isDragging = ref(false)
 const uploadingAvatar = ref(false)
@@ -153,10 +154,9 @@ const avatarUrl = computed(() => {
   return getAvatarUrl(userInfo.value.avatar) || DEFAULT_AVATAR_SVG
 })
 
-const cropMaskX = computed(() => Math.max(0, -cropX.value))
-const cropMaskY = computed(() => Math.max(0, -cropY.value))
-const cropMaskW = computed(() => Math.min(320, cropW.value + cropX.value) - cropMaskX.value)
-const cropMaskH = computed(() => Math.min(320, cropH.value + cropY.value) - cropMaskY.value)
+// 裁剪框固定居中
+const cropMaskX = computed(() => (320 - cropMaskSize) / 2)
+const cropMaskY = computed(() => (320 - cropMaskSize) / 2)
 
 const loadUserInfo = async () => {
   try {
@@ -259,8 +259,18 @@ const doCropAndUpload = () => {
   const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 200
   const ctx = canvas.getContext('2d')
   const scale = img.naturalWidth / cropW.value
+  
+  // 计算裁剪区域在原图上的位置和大小
+  const sourceX = -cropX.value * scale
+  const sourceY = -cropY.value * scale
+  const sourceSize = cropMaskSize * scale
+  
+  // 绘制白色背景
   ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, 200, 200)
-  ctx.drawImage(img, -cropX.value * scale, -cropY.value * scale, 320 * scale, 320 * scale, 0, 0, 200, 200)
+  
+  // 从原图裁剪指定区域并绘制到canvas
+  ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 200, 200)
+  
   canvas.toBlob(async (blob) => {
     uploadingAvatar.value = true
     try {
