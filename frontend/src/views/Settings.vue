@@ -84,24 +84,18 @@
     <!-- 头像裁剪弹窗 -->
     <el-dialog v-model="cropVisible" title="裁剪头像" width="90% max-w-[520px]" @close="resetCrop">
       <div class="flex flex-col items-center gap-4">
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center">拖拽图片调整位置 · 滚轮缩放 · 方框内为裁剪区域</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 text-center">拖拽图片调整位置 · 滚轮缩放 · 蓝色方框内为裁剪区域</div>
         <div class="crop-stage relative overflow-hidden border-2 border-dashed border-gray-400 dark:border-gray-500 rounded-lg select-none" style="width:320px;height:320px;" @wheel.prevent="onWheel">
           <img ref="cropImage" :src="cropSrc" class="absolute select-none pointer-events-none"
             :style="{ left: cropX + 'px', top: cropY + 'px', width: cropW + 'px', height: cropH + 'px' }" />
-          <svg class="absolute inset-0 w-full h-full" viewBox="0 0 320 320">
-            <defs>
-              <mask id="cropMaskS">
-                <rect width="320" height="320" fill="white" />
-                <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskSize" :height="cropMaskSize" rx="4" fill="black" />
-              </mask>
-            </defs>
-            <rect width="320" height="320" fill="rgba(0,0,0,0.55)" mask="url(#cropMaskS)" />
-            <rect :x="cropMaskX" :y="cropMaskY" :width="cropMaskSize" :height="cropMaskSize" rx="4" fill="none" stroke="#409eff" stroke-width="2" />
-            <line :x1="cropMaskX + cropMaskSize / 3" :y1="cropMaskY" :x2="cropMaskX + cropMaskSize / 3" :y2="cropMaskY + cropMaskSize" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX + cropMaskSize * 2/3" :y1="cropMaskY" :x2="cropMaskX + cropMaskSize * 2/3" :y2="cropMaskY + cropMaskSize" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskSize / 3" :x2="cropMaskX + cropMaskSize" :y2="cropMaskY + cropMaskSize / 3" stroke="white" stroke-width="0.5" opacity="0.5" />
-            <line :x1="cropMaskX" :y1="cropMaskY + cropMaskSize * 2/3" :x2="cropMaskX + cropMaskSize" :y2="cropMaskY + cropMaskSize * 2/3" stroke="white" stroke-width="0.5" opacity="0.5" />
-          </svg>
+          <div class="absolute pointer-events-none" :style="{ left: cropBoxX + 'px', top: cropBoxY + 'px', width: cropBoxSize + 'px', height: cropBoxSize + 'px' }">
+            <div class="absolute inset-0 border-2 border-blue-500 rounded-lg"></div>
+            <div class="absolute inset-0 bg-black/0"></div>
+            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500/50"></div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-blue-500/50"></div>
+            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500/50"></div>
+            <div class="absolute top-0 right-0 w-1 h-full bg-blue-500/50"></div>
+          </div>
           <div class="absolute inset-0 cursor-move" @mousedown="startDrag" />
         </div>
         <div class="flex items-center gap-4 w-full max-w-[320px]">
@@ -145,18 +139,20 @@ const cropX = ref(0)
 const cropY = ref(0)
 const cropW = ref(300)
 const cropH = ref(300)
-const cropMaskSize = 220 // 固定裁剪框大小
+const cropBoxSize = 220 // 固定裁剪框大小
 const dragStart = ref({ x: 0, y: 0, imgX: 0, imgY: 0 })
 const isDragging = ref(false)
 const uploadingAvatar = ref(false)
+const naturalW = ref(0) // 原始图片宽度
+const naturalH = ref(0) // 原始图片高度
 
 const avatarUrl = computed(() => {
   return getAvatarUrl(userInfo.value.avatar) || DEFAULT_AVATAR_SVG
 })
 
 // 裁剪框固定居中
-const cropMaskX = computed(() => (320 - cropMaskSize) / 2)
-const cropMaskY = computed(() => (320 - cropMaskSize) / 2)
+const cropBoxX = computed(() => (320 - cropBoxSize) / 2)
+const cropBoxY = computed(() => (320 - cropBoxSize) / 2)
 
 const loadUserInfo = async () => {
   try {
@@ -239,12 +235,16 @@ const onAvatarFile = async (e) => {
 const resetCrop = () => {
   cropScale.value = 100
   if (!cropImage.value) return
-  const img = cropImage.value
+  naturalW.value = cropImage.value.naturalWidth
+  naturalH.value = cropImage.value.naturalHeight
   const maxDim = 280
-  const s = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight, 1)
-  cropW.value = img.naturalWidth * s; cropH.value = img.naturalHeight * s
-  cropX.value = (320 - cropW.value) / 2; cropY.value = (320 - cropH.value) / 2
+  const s = Math.min(maxDim / naturalW.value, maxDim / naturalH.value, 1)
+  cropW.value = naturalW.value * s
+  cropH.value = naturalH.value * s
+  cropX.value = (320 - cropW.value) / 2
+  cropY.value = (320 - cropH.value) / 2
 }
+
 const onWheel = (e) => { const delta = e.deltaY > 0 ? -10 : 10; cropScale.value = Math.max(50, Math.min(250, cropScale.value + delta)) }
 const startDrag = (e) => {
   isDragging.value = true
@@ -260,15 +260,12 @@ const doCropAndUpload = () => {
   const ctx = canvas.getContext('2d')
   const scale = img.naturalWidth / cropW.value
   
-  // 计算裁剪区域在原图上的位置和大小
   const sourceX = -cropX.value * scale
   const sourceY = -cropY.value * scale
-  const sourceSize = cropMaskSize * scale
+  const sourceSize = cropBoxSize * scale
   
-  // 绘制白色背景
   ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, 200, 200)
   
-  // 从原图裁剪指定区域并绘制到canvas
   ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 200, 200)
   
   canvas.toBlob(async (blob) => {
@@ -285,18 +282,21 @@ const doCropAndUpload = () => {
 watch(cropScale, (val) => {
   if (!cropImage.value) return
   const scale = val / 100
-  const naturalW = cropImage.value.naturalWidth; const naturalH = cropImage.value.naturalHeight
   const maxDim = 280 * scale
-  const s = Math.min(maxDim / naturalW, maxDim / naturalH)
-  const newW = naturalW * s; const newH = naturalH * s
-  cropX.value += (cropW.value - newW) / 2; cropY.value += (cropH.value - newH) / 2
-  cropW.value = newW; cropH.value = newH
+  const s = Math.min(maxDim / naturalW.value, maxDim / naturalH.value)
+  const newW = naturalW.value * s
+  const newH = naturalH.value * s
+  cropX.value += (cropW.value - newW) / 2
+  cropY.value += (cropH.value - newH) / 2
+  cropW.value = newW
+  cropH.value = newH
 })
 onMounted(loadUserInfo)
 </script>
 
 <style scoped>
 .crop-stage { background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+.dark .crop-stage { background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 16px 16px; }
 .settings-entry {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px; border-radius: 10px;
