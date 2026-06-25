@@ -84,19 +84,23 @@
     <!-- 头像裁剪弹窗 -->
     <el-dialog v-model="cropVisible" title="裁剪头像" width="90% max-w-[520px]" @close="resetCrop">
       <div class="flex flex-col items-center gap-4">
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center">拖拽图片调整位置 · 滚轮缩放 · 蓝色方框内为裁剪区域</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 text-center">滚轮缩放图片 · 拖动蓝色方框选择头像区域</div>
         <div class="crop-stage relative overflow-hidden border-2 border-dashed border-gray-400 dark:border-gray-500 rounded-lg select-none" style="width:320px;height:320px;" @wheel.prevent="onWheel">
           <img ref="cropImage" :src="cropSrc" class="absolute select-none pointer-events-none"
             :style="{ left: cropX + 'px', top: cropY + 'px', width: cropW + 'px', height: cropH + 'px' }" />
-          <div class="absolute pointer-events-none" :style="{ left: cropBoxX + 'px', top: cropBoxY + 'px', width: cropBoxSize + 'px', height: cropBoxSize + 'px' }">
-            <div class="absolute inset-0 border-2 border-blue-500 rounded-lg"></div>
-            <div class="absolute inset-0 bg-black/0"></div>
-            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500/50"></div>
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-blue-500/50"></div>
-            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500/50"></div>
-            <div class="absolute top-0 right-0 w-1 h-full bg-blue-500/50"></div>
+          <div class="crop-box absolute cursor-move rounded-lg border-2 border-blue-500"
+            :style="{ left: cropBoxX + 'px', top: cropBoxY + 'px', width: cropBoxSize + 'px', height: cropBoxSize + 'px' }"
+            @mousedown.stop="startBoxDrag">
+            <div class="absolute inset-0 bg-blue-500/10"></div>
+            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500/60"></div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-blue-500/60"></div>
+            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500/60"></div>
+            <div class="absolute top-0 right-0 w-1 h-full bg-blue-500/60"></div>
+            <div class="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-blue-500 bg-white rounded-tl-sm"></div>
+            <div class="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-blue-500 bg-white rounded-tr-sm"></div>
+            <div class="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-blue-500 bg-white rounded-bl-sm"></div>
+            <div class="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-blue-500 bg-white rounded-br-sm"></div>
           </div>
-          <div class="absolute inset-0 cursor-move" @mousedown="startDrag" />
         </div>
         <div class="flex items-center gap-4 w-full max-w-[320px]">
           <span class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">缩放</span>
@@ -139,20 +143,18 @@ const cropX = ref(0)
 const cropY = ref(0)
 const cropW = ref(300)
 const cropH = ref(300)
-const cropBoxSize = 220 // 固定裁剪框大小
-const dragStart = ref({ x: 0, y: 0, imgX: 0, imgY: 0 })
+const cropBoxSize = 220
+const cropBoxX = ref(50)
+const cropBoxY = ref(50)
+const dragStart = ref({ x: 0, y: 0, boxX: 0, boxY: 0 })
 const isDragging = ref(false)
 const uploadingAvatar = ref(false)
-const naturalW = ref(0) // 原始图片宽度
-const naturalH = ref(0) // 原始图片高度
+const naturalW = ref(0)
+const naturalH = ref(0)
 
 const avatarUrl = computed(() => {
   return getAvatarUrl(userInfo.value.avatar) || DEFAULT_AVATAR_SVG
 })
-
-// 裁剪框固定居中
-const cropBoxX = computed(() => (320 - cropBoxSize) / 2)
-const cropBoxY = computed(() => (320 - cropBoxSize) / 2)
 
 const loadUserInfo = async () => {
   try {
@@ -234,6 +236,8 @@ const onAvatarFile = async (e) => {
 }
 const resetCrop = () => {
   cropScale.value = 100
+  cropBoxX.value = (320 - cropBoxSize) / 2
+  cropBoxY.value = (320 - cropBoxSize) / 2
   if (!cropImage.value) return
   naturalW.value = cropImage.value.naturalWidth
   naturalH.value = cropImage.value.naturalHeight
@@ -246,10 +250,16 @@ const resetCrop = () => {
 }
 
 const onWheel = (e) => { const delta = e.deltaY > 0 ? -10 : 10; cropScale.value = Math.max(50, Math.min(250, cropScale.value + delta)) }
-const startDrag = (e) => {
+const startBoxDrag = (e) => {
   isDragging.value = true
-  dragStart.value = { x: e.clientX, y: e.clientY, imgX: cropX.value, imgY: cropY.value }
-  const onMove = (ev) => { if (!isDragging.value) return; cropX.value = dragStart.value.imgX + (ev.clientX - dragStart.value.x); cropY.value = dragStart.value.imgY + (ev.clientY - dragStart.value.y) }
+  dragStart.value = { x: e.clientX, y: e.clientY, boxX: cropBoxX.value, boxY: cropBoxY.value }
+  const onMove = (ev) => {
+    if (!isDragging.value) return
+    const newX = dragStart.value.boxX + (ev.clientX - dragStart.value.x)
+    const newY = dragStart.value.boxY + (ev.clientY - dragStart.value.y)
+    cropBoxX.value = Math.max(0, Math.min(320 - cropBoxSize, newX))
+    cropBoxY.value = Math.max(0, Math.min(320 - cropBoxSize, newY))
+  }
   const onUp = () => { isDragging.value = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
   document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
 }
@@ -260,8 +270,8 @@ const doCropAndUpload = () => {
   const ctx = canvas.getContext('2d')
   const scale = img.naturalWidth / cropW.value
   
-  const sourceX = -cropX.value * scale
-  const sourceY = -cropY.value * scale
+  const sourceX = (cropBoxX.value - cropX.value) * scale
+  const sourceY = (cropBoxY.value - cropY.value) * scale
   const sourceSize = cropBoxSize * scale
   
   ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, 200, 200)
