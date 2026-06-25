@@ -43,7 +43,8 @@ router.beforeEach(async (to, from) => {
   
   // 公开页面，无需登录检查
   const publicPaths = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password', '/user/:id']
-  if (publicPaths.includes(to.path) || to.meta?.requiresAuth === false) {
+  const publicRoutes = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password']
+  if (publicRoutes.includes(to.path) || to.meta?.requiresAuth === false || to.path.startsWith('/user/') || to.path.startsWith('/forum/detail/')) {
     return true
   }
 

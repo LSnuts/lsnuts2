@@ -1,121 +1,136 @@
 <template>
-  <div class="p-3 md:p-5">
-    <el-card>
-      <template #header>
-        <span class="font-bold text-lg">轻量论坛</span>
-      </template>
+  <div class="tieba-forum">
+    <!-- 面包屑导航 -->
+    <div class="breadcrumb-bar">
+      <span class="breadcrumb-item" @click="$router.push('/')">首页</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item current">论坛</span>
+    </div>
 
-      <div class="mb-4 flex flex-col sm:flex-row gap-2">
-        <div class="flex gap-2">
-          <el-button type="primary" @click="$router.push('/forum/post')" size="default">✍️ 发新帖</el-button>
-          <el-button @click="refreshPosts()" size="default">🔄 刷新</el-button>
-        </div>
-        <div class="flex-1" />
-        <el-input v-model="searchText" placeholder="搜索帖子标题..." size="default" class="!w-full sm:!w-[220px]" clearable @input="onSearch">
+    <!-- 顶部工具栏 -->
+    <div class="forum-toolbar">
+      <div class="toolbar-left">
+        <el-button type="primary" size="small" @click="$router.push('/forum/post')">
+          ✍️ 发新帖
+        </el-button>
+        <el-button size="small" @click="refreshPosts()">🔄 刷新</el-button>
+      </div>
+      <div class="toolbar-right">
+        <el-input
+          v-model="searchText"
+          placeholder="搜索帖子标题..."
+          size="small"
+          class="search-input"
+          clearable
+          @input="onSearch"
+        >
           <template #prefix><span class="text-gray-400">🔍</span></template>
         </el-input>
       </div>
+    </div>
 
-      <div class="mb-4 flex gap-2 flex-wrap">
-        <el-button :type="activeTag === '' ? 'primary' : 'default'" size="default" @click="filterTag('')">全部</el-button>
-        <el-button :type="activeTag === 'tech' ? 'primary' : 'default'" size="default" @click="filterTag('tech')">💻 技术分享</el-button>
-        <el-button :type="activeTag === 'help' ? 'primary' : 'default'" size="default" @click="filterTag('help')">❓ 提问求助</el-button>
-        <el-button :type="activeTag === 'chat' ? 'primary' : 'default'" size="default" @click="filterTag('chat')">💬 闲聊灌水</el-button>
-        <el-button :type="activeTag === 'other' ? 'primary' : 'default'" size="default" @click="filterTag('other')">📂 其他</el-button>
+    <!-- 分类标签栏 -->
+    <div class="tag-bar">
+      <span
+        v-for="t in tagOptions"
+        :key="t.value"
+        class="tag-item"
+        :class="{ active: activeTag === t.value }"
+        @click="filterTag(t.value)"
+      >
+        {{ t.label }}
+      </span>
+    </div>
+
+    <!-- 帖子列表表格 -->
+    <div class="post-table">
+      <!-- 表头 -->
+      <div class="table-header">
+        <span class="col-status">状态</span>
+        <span class="col-title">标题</span>
+        <span class="col-author">作者</span>
+        <span class="col-reply">回复</span>
+        <span class="col-last">最后回复</span>
       </div>
 
-      <div v-if="pinnedPosts.length > 0" class="mb-4">
-        <div class="flex items-center gap-1 mb-3">
-          <span class="inline-block w-1 h-4 bg-orange-400 rounded"></span>
-          <span class="text-sm font-semibold text-orange-500">置顶</span>
-        </div>
-        <div class="space-y-2">
-          <div v-for="post in pinnedPosts" :key="post.id" 
-               class="post-card pinned-card" @click="$router.push(`/forum/detail/${post.id}`)">
-            <div class="post-left-border pinned-border"></div>
-            <div class="post-content">
-              <div class="flex items-start gap-3">
-                <div class="avatar-wrapper flex-shrink-0">
-                      <img :src="post.avatar ? API_BASE + post.avatar : DEFAULT_AVATAR_SVG" :alt="post.user" class="post-avatar" />
-                    </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-bold text-gray-800 dark:text-gray-200 truncate">{{ post.title }}</span>
-                    <el-tag type="danger" size="small" class="flex-shrink-0">📌 置顶</el-tag>
-                    <el-tag v-if="post.tag" size="small" class="flex-shrink-0" :type="tagType(post.tag)">{{ tagLabel(post.tag) }}</el-tag>
-                    <el-tag v-if="post.is_admin === 1" type="danger" size="small" class="flex-shrink-0">管理员</el-tag>
-                  </div>
-                  <div class="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{{ post.user }}</span>
-                    <span>{{ post.create_time }}</span>
-                    <span class="flex items-center gap-1">
-                      <span>💬</span>
-                      <span>{{ post.comment_count }}</span>
-                    </span>
-                    <span class="like-count flex items-center gap-1">
-                      <span>👍</span>
-                      <span class="font-semibold">{{ post.like_count }}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- 置顶帖 -->
+      <div
+        v-for="post in pinnedPosts"
+        :key="'pin-' + post.id"
+        class="table-row pinned-row"
+        @click="$router.push(`/forum/detail/${post.id}`)"
+      >
+        <span class="col-status">
+          <span class="status-icon pinned-icon">📌</span>
+        </span>
+        <span class="col-title">
+          <span class="post-title">
+            <span class="tag-badge tag-pinned">置顶</span>
+            <span v-if="post.tag" class="tag-badge" :class="'tag-' + post.tag">{{ tagLabel(post.tag) }}</span>
+            <span class="title-text">{{ post.title }}</span>
+          </span>
+        </span>
+        <span class="col-author">
+          <span class="author-name">{{ post.user }}</span>
+        </span>
+        <span class="col-reply">{{ post.comment_count || 0 }}</span>
+        <span class="col-last">{{ formatTime(post) }}</span>
       </div>
 
-      <div v-infinite-scroll="loadMore" :infinite-scroll-disabled="loading || noMore || posts.length === 0" infinite-scroll-distance="100">
-        <template v-if="normalPosts.length > 0">
-          <div class="space-y-3">
-            <div v-for="post in normalPosts" :key="post.id" 
-                 class="post-card" @click="$router.push(`/forum/detail/${post.id}`)">
-              <div class="post-left-border" :class="borderColor(post.tag)"></div>
-              <div class="post-content">
-                <div class="flex items-start gap-3">
-                  <div class="avatar-wrapper flex-shrink-0">
-                    <img :src="post.avatar || '/static/default_avatar.png'" :alt="post.user" class="post-avatar" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-medium text-gray-800 dark:text-gray-200 truncate">{{ post.title }}</span>
-                      <el-tag v-if="post.tag" size="small" class="flex-shrink-0" :type="tagType(post.tag)">{{ tagLabel(post.tag) }}</el-tag>
-                      <el-tag v-if="post.is_admin === 1" type="danger" size="small" class="flex-shrink-0">管理员</el-tag>
-                    </div>
-                    <div class="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{{ post.user }}</span>
-                      <span>{{ post.create_time }}</span>
-                      <span class="flex items-center gap-1">
-                        <span>💬</span>
-                        <span>{{ post.comment_count }}</span>
-                      </span>
-                      <span class="like-count flex items-center gap-1">
-                        <span>👍</span>
-                        <span class="font-semibold">{{ post.like_count }}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
+      <!-- 分割线（置顶和普通帖之间） -->
+      <div v-if="pinnedPosts.length > 0 && normalPosts.length > 0" class="table-divider"></div>
 
-        <div v-if="loading && posts.length > 0" class="text-center py-4">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <span class="text-gray-400 text-sm ml-1">加载中...</span>
-        </div>
-
-        <div v-if="noMore && posts.length > 0" class="text-center py-4 text-gray-400 text-sm">
-          没有更多帖子了
+      <!-- 普通帖子 -->
+      <div v-infinite-scroll="loadMore" :infinite-scroll-disabled="loading || noMore" infinite-scroll-distance="100">
+        <div
+          v-for="(post, index) in normalPosts"
+          :key="post.id"
+          class="table-row"
+          :class="{ 'row-zebra': index % 2 === 1 }"
+          @click="$router.push(`/forum/detail/${post.id}`)"
+        >
+          <span class="col-status">
+            <span class="status-icon" :class="statusClass(post)">●</span>
+          </span>
+          <span class="col-title">
+            <span class="post-title">
+              <span v-if="post.tag" class="tag-badge" :class="'tag-' + post.tag">{{ tagLabel(post.tag) }}</span>
+              <span v-if="post.is_admin === 1" class="tag-badge tag-admin">管理</span>
+              <span class="title-text">{{ post.title }}</span>
+            </span>
+          </span>
+          <span class="col-author">
+            <span class="author-name">{{ post.user }}</span>
+          </span>
+          <span class="col-reply">{{ post.comment_count || 0 }}</span>
+          <span class="col-last">{{ formatTime(post) }}</span>
         </div>
       </div>
 
-      <div v-if="posts.length === 0 && !loading" class="text-center py-12">
-        <div class="text-6xl mb-4">📭</div>
-        <div class="text-gray-400 dark:text-gray-500 text-lg mb-2">暂无帖子</div>
-        <el-button type="primary" size="default" @click="$router.push('/forum/post')">✍️ 发第一个帖子</el-button>
+      <!-- 加载状态 -->
+      <div v-if="loading && posts.length > 0" class="loading-bar">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <span>加载中...</span>
       </div>
-    </el-card>
+
+      <div v-if="noMore && posts.length > 0" class="loading-bar">
+        —— 没有更多帖子了 ——
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="posts.length === 0 && !loading" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">暂无帖子</div>
+        <el-button type="primary" size="small" @click="$router.push('/forum/post')">
+          ✍️ 发第一个帖子
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div v-if="posts.length > 0" class="forum-stats">
+      共 {{ total }} 个帖子
+    </div>
   </div>
 </template>
 
@@ -129,11 +144,19 @@ const posts = ref([])
 const searchText = ref('')
 const activeTag = ref('')
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const total = ref(0)
 const loading = ref(false)
 const noMore = ref(false)
 let searchTimer = null
+
+const tagOptions = [
+  { label: '全部', value: '' },
+  { label: '💻 技术分享', value: 'tech' },
+  { label: '❓ 提问求助', value: 'help' },
+  { label: '💬 闲聊灌水', value: 'chat' },
+  { label: '📂 其他', value: 'other' },
+]
 
 const pinnedPosts = computed(() => posts.value.filter(p => p.is_pinned === 1))
 const normalPosts = computed(() => posts.value.filter(p => p.is_pinned !== 1))
@@ -143,19 +166,30 @@ const filterTag = (tag) => {
   refreshPosts()
 }
 
-const tagType = (tag) => {
-  const map = { tech: '', help: 'warning', chat: 'success' }
-  return map[tag] || 'info'
-}
-
 const tagLabel = (tag) => {
-  const map = { tech: '技术分享', help: '提问求助', chat: '闲聊灌水' }
+  const map = { tech: '技术', help: '求助', chat: '灌水', other: '其他' }
   return map[tag] || tag
 }
 
-const borderColor = (tag) => {
-  const map = { tech: 'border-blue', help: 'border-orange', chat: 'border-green' }
-  return map[tag] || 'border-gray'
+const statusClass = (post) => {
+  if (post.is_pinned === 1) return 'status-pinned'
+  if (post.comment_count >= 10) return 'status-hot'
+  return 'status-normal'
+}
+
+const formatTime = (post) => {
+  const t = post.last_comment_time || post.create_time
+  if (!t) return '-'
+  const now = new Date()
+  const d = new Date(t.replace(' ', 'T'))
+  if (d.toDateString() === now.toDateString()) {
+    return t.split(' ')[1]?.substring(0, 5) || t
+  }
+  const parts = t.split(' ')[0]?.split('-')
+  if (parts && parts.length >= 3) {
+    return `${parts[1]}-${parts[2]}`
+  }
+  return t
 }
 
 const loadPosts = async (append = false) => {
@@ -163,7 +197,12 @@ const loadPosts = async (append = false) => {
   loading.value = true
   try {
     const res = await axios.get('/api/forum/list', {
-      params: { search: searchText.value, page: currentPage.value, per_page: pageSize.value, tag: activeTag.value }
+      params: {
+        search: searchText.value,
+        page: currentPage.value,
+        per_page: pageSize.value,
+        tag: activeTag.value,
+      },
     })
     const newPosts = res.data.data || []
     total.value = res.data.total || 0
@@ -173,7 +212,9 @@ const loadPosts = async (append = false) => {
       posts.value = newPosts
     }
     noMore.value = posts.value.length >= total.value
-  } catch (e) {}
+  } catch (e) {
+    // ignore
+  }
   loading.value = false
 }
 
@@ -191,7 +232,9 @@ const loadMore = () => {
 
 const onSearch = () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { refreshPosts() }, 300)
+  searchTimer = setTimeout(() => {
+    refreshPosts()
+  }, 300)
 }
 
 onMounted(() => {
@@ -204,73 +247,449 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.post-card {
-  position: relative;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
+.tieba-forum {
+}
+
+/* ---- 面包屑 ---- */
+.breadcrumb-bar {
+  font-size: 13px;
+  color: var(--tieba-text-muted);
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.breadcrumb-item {
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  color: var(--tieba-link);
+}
+
+.breadcrumb-item:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-item.current {
+  color: var(--tieba-text);
+  cursor: default;
+}
+
+.breadcrumb-item.current:hover {
+  text-decoration: none;
+}
+
+.breadcrumb-sep {
+  margin: 0 6px;
+  color: #ccc;
+}
+
+/* ---- 工具栏 ---- */
+.forum-toolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--tieba-bg-white);
+  border: 1px solid var(--tieba-border);
+  border-bottom: none;
+  flex-wrap: wrap;
 }
 
-.post-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transform: translateY(-1px);
+.toolbar-left {
+  display: flex;
+  gap: 6px;
 }
 
-.post-left-border {
-  width: 4px;
+.toolbar-right {
+  display: flex;
+  gap: 6px;
+}
+
+.search-input {
+  width: 200px;
+}
+
+.dark .forum-toolbar {
+  background: var(--tieba-bg-white);
+  border-color: var(--tieba-border);
+}
+
+/* ---- 分类标签栏 ---- */
+.tag-bar {
+  display: flex;
+  gap: 0;
+  background: #fafafa;
+  border: 1px solid var(--tieba-border);
+  border-bottom: 2px solid var(--tieba-blue);
+  padding: 0;
+}
+
+.tag-item {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--tieba-text-light);
+  cursor: pointer;
+  border-right: 1px solid var(--tieba-border);
+  transition: none;
+}
+
+.tag-item:hover {
+  background: #f0f5ff;
+  color: var(--tieba-blue);
+}
+
+.tag-item.active {
+  background: var(--tieba-blue);
+  color: #fff;
+}
+
+.tag-item:first-child {
+  border-left: none;
+}
+
+.dark .tag-bar {
+  background: #2a2a2a;
+  border-color: var(--tieba-border);
+}
+
+.dark .tag-item {
+  border-color: var(--tieba-border);
+}
+
+.dark .tag-item:hover {
+  background: #333;
+}
+
+.dark .tag-item.active {
+  background: var(--tieba-blue);
+  color: #fff;
+}
+
+/* ---- 帖子表格 ---- */
+.post-table {
+  background: var(--tieba-bg-white);
+  border: 1px solid var(--tieba-border);
+  border-top: none;
+}
+
+.dark .post-table {
+  background: var(--tieba-bg-white);
+  border-color: var(--tieba-border);
+}
+
+/* 表头 */
+.table-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-bottom: 1px solid var(--tieba-border);
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--tieba-text-light);
+}
+
+.dark .table-header {
+  background: #2a2a2a;
+  border-color: var(--tieba-border);
+}
+
+/* 行 */
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: none;
+  font-size: 13px;
+}
+
+.table-row:hover {
+  background: #f0f5ff;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.row-zebra {
+  background: #fafafa;
+}
+
+.row-zebra:hover {
+  background: #f0f5ff;
+}
+
+.dark .table-row {
+  border-bottom-color: var(--tieba-border);
+}
+
+.dark .table-row:hover {
+  background: #2a3a4a;
+}
+
+.dark .row-zebra {
+  background: #262626;
+}
+
+/* 置顶行 */
+.pinned-row {
+  background: var(--tieba-pinned-bg) !important;
+}
+
+.pinned-row:hover {
+  background: #fff3cd !important;
+}
+
+.dark .pinned-row {
+  background: #332a1a !important;
+}
+
+/* 分割线 */
+.table-divider {
+  height: 2px;
+  background: var(--tieba-border);
+}
+
+/* 列宽 */
+.col-status {
+  width: 36px;
+  text-align: center;
   flex-shrink: 0;
-  border-radius: 8px 0 0 8px;
 }
 
-.post-left-border.border-blue { background: #3b82f6; }
-.post-left-border.border-orange { background: #f97316; }
-.post-left-border.border-green { background: #22c55e; }
-.post-left-border.border-gray { background: #6b7280; }
-.post-left-border.pinned-border { background: linear-gradient(180deg, #f97316 0%, #fb923c 100%); }
-
-.post-content {
+.col-title {
   flex: 1;
-  padding: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.post-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #e5e7eb;
+.col-author {
+  width: 90px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--tieba-text-light);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.like-count {
+.col-reply {
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--tieba-text-muted);
+  font-size: 12px;
+}
+
+.col-last {
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--tieba-text-muted);
+  font-size: 12px;
+}
+
+/* 状态图标 */
+.status-icon {
+  font-size: 10px;
+}
+
+.status-normal {
+  color: #ccc;
+}
+
+.status-hot {
+  color: #f97316;
+}
+
+.status-pinned {
   color: #ef4444;
 }
 
-.like-count span:last-child {
-  font-weight: 600;
+.pinned-icon {
+  font-size: 14px;
 }
 
-.pinned-card {
-  background: linear-gradient(90deg, rgba(251, 146, 60, 0.05) 0%, white 20%);
+/* 帖子标题 */
+.post-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
 }
 
-.dark .post-card {
-  background: #1f2937;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+.title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tieba-text);
 }
 
-.dark .post-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+.title-text:hover {
+  color: var(--tieba-blue);
 }
 
-.dark .pinned-card {
-  background: linear-gradient(90deg, rgba(251, 146, 60, 0.1) 0%, #1f2937 20%);
+/* 标签徽章 */
+.tag-badge {
+  display: inline-block;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 18px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
-.dark .like-count {
+.tag-tech {
+  background: #e0f0ff;
+  color: #2563eb;
+}
+
+.tag-help {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.tag-chat {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.tag-other {
+  background: #f3f3f3;
+  color: #666;
+}
+
+.tag-pinned {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.tag-admin {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.dark .tag-tech {
+  background: #1e3a5f;
+  color: #60a5fa;
+}
+
+.dark .tag-help {
+  background: #4a2c00;
+  color: #fb923c;
+}
+
+.dark .tag-chat {
+  background: #1a3a1a;
+  color: #4ade80;
+}
+
+.dark .tag-other {
+  background: #333;
+  color: #aaa;
+}
+
+.dark .tag-pinned {
+  background: #4a1a1a;
   color: #f87171;
+}
+
+.dark .tag-admin {
+  background: #4a1a1a;
+  color: #ef9a9a;
+}
+
+/* 作者名 */
+.author-name {
+  color: var(--tieba-link);
+  font-size: 12px;
+}
+
+.author-name:hover {
+  text-decoration: underline;
+}
+
+/* 加载状态 */
+.loading-bar {
+  text-align: center;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--tieba-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-text {
+  color: var(--tieba-text-muted);
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+/* 统计信息 */
+.forum-stats {
+  text-align: right;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--tieba-text-muted);
+}
+
+/* ---- 移动端适配 ---- */
+@media (max-width: 768px) {
+  .forum-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100% !important;
+  }
+
+  .col-author {
+    width: 60px;
+    font-size: 11px;
+  }
+
+  .col-reply {
+    width: 36px;
+  }
+
+  .col-last {
+    width: 60px;
+    font-size: 11px;
+  }
+
+  .tag-item {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .col-status {
+    display: none;
+  }
+
+  .col-author {
+    display: none;
+  }
 }
 </style>

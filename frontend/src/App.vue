@@ -1,50 +1,73 @@
 <template>
   <el-container :class="['app-container', { dark: isDark }]" style="min-height: 100vh">
-    <!-- 桌面端顶部导航栏 -->
-    <el-header class="header desktop-header" ref="desktopHeaderRef">
-      <div class="logo">☁️ lsnuts 云端平台</div>
-      <el-menu :key="menuKey" mode="horizontal" :default-active="$route.path" class="nav" router>
-        <el-menu-item index="/">首页</el-menu-item>
-        <el-menu-item index="/drive">网盘</el-menu-item>
-        <el-menu-item index="/forum">论坛</el-menu-item>
-        <el-menu-item index="/about">关于本站</el-menu-item>
-        <template v-if="!userStore.isLoggedIn">
-          <el-menu-item index="/login">登录</el-menu-item>
-          <el-menu-item index="/register">注册</el-menu-item>
-        </template>
-        <template v-else>
-          <el-menu-item index="/profile">个人中心</el-menu-item>
-          <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">管理后台</el-menu-item>
-          <el-menu-item @click="handleLogout">退出账户</el-menu-item>
-        </template>
-      </el-menu>
-      <div class="flex items-center gap-2 ml-auto">
-        <!-- 通知铃铛 -->
-        <el-badge v-if="userStore.isLoggedIn" :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" class="mr-2">
-          <el-button circle size="small" @click="showNotifications"><span class="text-lg">🔔</span></el-button>
-        </el-badge>
-        <!-- 深色模式切换 -->
-        <el-button circle size="small" @click="toggleDark">
-          <span class="text-lg">{{ isDark ? '☀️' : '🌙' }}</span>
-        </el-button>
+    <!-- ========== 桌面端顶部导航栏 ========== -->
+    <el-header class="tieba-header desktop-header" ref="desktopHeaderRef">
+      <div class="header-inner">
+        <div class="logo" @click="$router.push('/')">
+          <span class="logo-icon">☁️</span>
+          <span class="logo-text">lsnuts 云端平台</span>
+        </div>
+        <el-menu
+          :key="menuKey"
+          mode="horizontal"
+          :default-active="$route.path"
+          class="tieba-nav"
+          router
+          :ellipsis="false"
+        >
+          <el-menu-item index="/">首页</el-menu-item>
+          <el-menu-item index="/drive">网盘</el-menu-item>
+          <el-menu-item index="/forum">论坛</el-menu-item>
+          <el-menu-item index="/about">关于</el-menu-item>
+          <template v-if="!userStore.isLoggedIn">
+            <el-menu-item index="/login">登录</el-menu-item>
+            <el-menu-item index="/register">注册</el-menu-item>
+          </template>
+          <template v-else>
+            <el-menu-item index="/profile">个人中心</el-menu-item>
+            <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">管理</el-menu-item>
+            <el-menu-item @click="handleLogout">退出</el-menu-item>
+          </template>
+        </el-menu>
+        <div class="header-actions">
+          <el-badge
+            v-if="userStore.isLoggedIn"
+            :value="notifStore.unreadCount"
+            :hidden="notifStore.unreadCount === 0"
+            class="notif-badge"
+          >
+            <el-button circle size="small" @click="showNotifications">
+              <span class="text-base">🔔</span>
+            </el-button>
+          </el-badge>
+          <el-button circle size="small" @click="toggleDark">
+            <span class="text-base">{{ isDark ? '☀️' : '🌙' }}</span>
+          </el-button>
+        </div>
       </div>
     </el-header>
 
-    <!-- 移动端顶部导航栏 -->
+    <!-- ========== 移动端顶部导航栏 ========== -->
     <div class="mobile-header">
       <el-button class="menu-btn" @click="drawerVisible = true">☰</el-button>
-      <div class="logo">☁️ lsnuts</div>
+      <div class="logo" @click="$router.push('/')">☁️ lsnuts</div>
       <div class="flex items-center gap-1">
-        <el-badge v-if="userStore.isLoggedIn" :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0">
-          <el-button circle size="small" @click="showNotifications"><span class="text-lg">🔔</span></el-button>
+        <el-badge
+          v-if="userStore.isLoggedIn"
+          :value="notifStore.unreadCount"
+          :hidden="notifStore.unreadCount === 0"
+        >
+          <el-button circle size="small" @click="showNotifications">
+            <span class="text-base">🔔</span>
+          </el-button>
         </el-badge>
         <el-button circle size="small" @click="toggleDark">
-          <span class="text-lg">{{ isDark ? '☀️' : '🌙' }}</span>
+          <span class="text-base">{{ isDark ? '☀️' : '🌙' }}</span>
         </el-button>
       </div>
     </div>
 
-    <!-- 移动端侧滑抽屉导航 -->
+    <!-- 移动端侧滑抽屉 -->
     <el-drawer v-model="drawerVisible" direction="ltr" size="220px" :with-header="false">
       <div class="drawer-nav">
         <div class="drawer-logo">☁️ lsnuts 云端平台</div>
@@ -52,15 +75,15 @@
           <el-menu-item index="/">🏠 首页</el-menu-item>
           <el-menu-item index="/drive">💾 网盘</el-menu-item>
           <el-menu-item index="/forum">📝 论坛</el-menu-item>
-          <el-menu-item index="/about">ℹ️ 关于本站</el-menu-item>
-          <template v-if="!store.isLoggedIn">
+          <el-menu-item index="/about">ℹ️ 关于</el-menu-item>
+          <template v-if="!userStore.isLoggedIn">
             <el-menu-item index="/login">🔑 登录</el-menu-item>
             <el-menu-item index="/register">📋 注册</el-menu-item>
           </template>
           <template v-else>
             <el-menu-item index="/profile">👤 个人中心</el-menu-item>
-            <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">⚙️ 管理后台</el-menu-item>
-            <el-menu-item @click="handleLogout">🚪 退出账户</el-menu-item>
+            <el-menu-item v-if="userStore.userInfo.is_admin === 1" index="/admin">⚙️ 管理</el-menu-item>
+            <el-menu-item @click="handleLogout">🚪 退出</el-menu-item>
           </template>
         </el-menu>
       </div>
@@ -68,18 +91,37 @@
 
     <!-- 通知弹窗 -->
     <el-dialog v-model="notifVisible" title="📬 消息通知" width="90% max-w-[420px]" @open="onNotifOpen">
-      <div v-if="notifStore.notifications.length === 0" class="text-center text-gray-400 py-6">暂无通知</div>
+      <div v-if="notifStore.notifications.length === 0" class="text-center text-gray-400 py-6">
+        暂无通知
+      </div>
       <div v-else class="space-y-3">
-        <div v-for="n in notifStore.notifications" :key="n.id" class="p-3 rounded border relative group" :class="n.is_read ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'">
+        <div
+          v-for="n in notifStore.notifications"
+          :key="n.id"
+          class="p-3 rounded border relative"
+          :class="n.is_read
+            ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+            : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'"
+        >
           <div class="text-sm font-medium text-gray-800 dark:text-gray-200">
             {{ n.replier }}
-            <span class="text-blue-600 dark:text-blue-400">{{ n.type === 'post_reply' ? '回复了你的帖子' : n.type === 'mention' ? '在评论中@了你' : '回复了你的评论' }}</span>
+            <span class="text-blue-600 dark:text-blue-400">
+              {{ n.type === 'post_reply' ? '回复了你的帖子'
+                : n.type === 'mention' ? '在评论中@了你'
+                : '回复了你的评论' }}
+            </span>
           </div>
-          <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{{ n.comment_content }}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+            {{ n.comment_content }}
+          </div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400 dark:text-gray-500">{{ n.post_title }} · {{ n.create_time }}</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500">
+              {{ n.post_title }} · {{ n.create_time }}
+            </span>
             <div class="flex gap-1">
-              <el-button v-if="!n.post_deleted" size="small" type="primary" @click="goToPost(n)">去看看 →</el-button>
+              <el-button v-if="!n.post_deleted" size="small" type="primary" @click="goToPost(n)">
+                去看看 →
+              </el-button>
               <el-button v-else size="small" disabled>帖子已删除</el-button>
               <el-button size="small" type="danger" text @click="deleteNotif(n.id)">🗑</el-button>
             </div>
@@ -87,15 +129,24 @@
         </div>
       </div>
       <template #footer>
-        <el-button v-if="notifStore.notifications.length > 0" size="small" @click="markAllRead">全部标为已读</el-button>
+        <el-button v-if="notifStore.notifications.length > 0" size="small" @click="markAllRead">
+          全部标为已读
+        </el-button>
         <el-button size="small" @click="notifVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
-    <!-- 主内容区域 -->
-    <el-main class="main">
-      <router-view @login="handleLogin" @avatar-change="userStore.fetchUserInfo" />
+    <!-- ========== 主内容区 ========== -->
+    <el-main class="tieba-main">
+      <div class="tieba-content-wrapper">
+        <router-view @login="handleLogin" @avatar-change="userStore.fetchUserInfo" />
+      </div>
     </el-main>
+
+    <!-- ========== 底部 ========== -->
+    <footer class="tieba-footer">
+      <span>© 2026 lsnuts 云端平台</span>
+    </footer>
   </el-container>
 </template>
 
@@ -137,8 +188,8 @@ const handleDrawerSelect = (index) => {
   router.push(index)
 }
 
-const handleLogin = () => { 
-  userStore.fetchUserInfo() 
+const handleLogin = () => {
+  userStore.fetchUserInfo()
   notifStore.fetchUnreadCount()
 }
 
@@ -174,8 +225,8 @@ const deleteNotif = async (id) => {
   }
 }
 
-watch(() => userStore.isLoggedIn, (val) => { 
-  if (val) notifStore.fetchUnreadCount() 
+watch(() => userStore.isLoggedIn, (val) => {
+  if (val) notifStore.fetchUnreadCount()
 })
 
 onMounted(() => {
@@ -193,36 +244,183 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* 桌面端导航栏 - 默认显示 */
-.desktop-header {
+/* ============================================
+   导航栏 - 贴吧蓝色
+   ============================================ */
+.tieba-header.desktop-header {
   display: flex !important;
   align-items: center;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 20px;
+  background: #4879BD;
+  border-bottom: none !important;
+  padding: 0;
+  height: 44px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
-.desktop-header .logo { font-size: 20px; font-weight: bold; color: #409eff; margin-right: 30px; white-space: nowrap; }
-.desktop-header :deep(.el-menu) { flex: 1; border: none; background: transparent; }
 
-/* 移动端导航栏 - 默认隐藏 */
+.header-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+  height: 100%;
+}
+
+.tieba-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-right: 24px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tieba-header .logo-icon {
+  font-size: 18px;
+}
+
+.tieba-header .logo-text {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+/* 导航菜单 */
+.tieba-nav {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  height: 44px !important;
+}
+
+.tieba-nav .el-menu-item {
+  color: rgba(255,255,255,0.85) !important;
+  font-size: 13px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  padding: 0 14px !important;
+  border-bottom: none !important;
+  background: transparent !important;
+}
+
+.tieba-nav .el-menu-item:hover,
+.tieba-nav .el-menu-item.is-active {
+  color: #fff !important;
+  background: rgba(255,255,255,0.15) !important;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.header-actions .el-button {
+  border-color: rgba(255,255,255,0.3) !important;
+  background: transparent !important;
+  color: #fff !important;
+}
+
+.header-actions .el-button:hover {
+  background: rgba(255,255,255,0.15) !important;
+}
+
+.notif-badge .el-badge__content {
+  font-size: 10px;
+}
+
+/* ============================================
+   移动端导航栏
+   ============================================ */
 .mobile-header {
   display: none;
   justify-content: space-between;
   align-items: center;
-  background: var(--bg-card);
+  background: #4879BD;
   padding: 0 10px;
-  height: 50px;
-  border-bottom: 1px solid var(--border-color);
+  height: 44px;
+  border-bottom: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
-.mobile-header .logo { font-size: 18px; font-weight: bold; color: #409eff; }
-.menu-btn { border: none; background: transparent; font-size: 24px; color: var(--text-primary); }
 
-.main { background: var(--bg-main); min-height: calc(100vh - 60px); padding: 0; }
+.mobile-header .logo {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+}
 
-.drawer-nav { padding-top: 20px; }
-.drawer-logo { font-size: 18px; font-weight: bold; color: #409eff; text-align: center; margin-bottom: 16px; }
+.mobile-header .menu-btn {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  color: #fff;
+}
 
-/* 响应式：移动端显示移动端导航，隐藏桌面端导航 */
+.mobile-header .el-button {
+  border-color: rgba(255,255,255,0.3) !important;
+  background: transparent !important;
+  color: #fff !important;
+}
+
+/* ============================================
+   主内容区
+   ============================================ */
+.tieba-main {
+  background: var(--tieba-bg);
+  min-height: calc(100vh - 44px - 40px);
+  padding: 0;
+}
+
+.tieba-content-wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px;
+}
+
+/* ============================================
+   底部
+   ============================================ */
+.tieba-footer {
+  text-align: center;
+  padding: 10px 0;
+  font-size: 12px;
+  color: #999;
+  background: #f7f7f7;
+  border-top: 1px solid var(--tieba-border);
+}
+
+.dark .tieba-footer {
+  background: #1a1a1a;
+  border-top-color: #333;
+  color: #666;
+}
+
+/* ============================================
+   抽屉导航
+   ============================================ */
+.drawer-nav {
+  padding-top: 16px;
+}
+
+.drawer-logo {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--tieba-blue);
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--tieba-border);
+}
+
+/* ============================================
+   响应式
+   ============================================ */
 @media (max-width: 768px) {
   .desktop-header {
     display: none !important;
@@ -230,34 +428,72 @@ onUnmounted(() => {
   .mobile-header {
     display: flex !important;
   }
-  .main { min-height: calc(100vh - 50px); }
+  .tieba-main {
+    min-height: calc(100vh - 44px - 36px);
+  }
+  .tieba-content-wrapper {
+    padding: 8px;
+  }
 }
 
-/* 确保桌面端始终隐藏移动端导航 */
 @media (min-width: 769px) {
   .mobile-header {
     display: none !important;
   }
 }
 
-.el-table { font-size: 12px; }
-@media (max-width: 768px) { .el-table { font-size: 11px; } .el-card { border-radius: 0; } }
+/* ============================================
+   Element Plus 深色模式覆盖
+   ============================================ */
+.dark .tieba-header.desktop-header {
+  background: #2c5a8a;
+}
 
-/* 全局返回按钮 */
+.dark .mobile-header {
+  background: #2c5a8a;
+}
+
+.dark .tieba-main {
+  background: #1a1a1a;
+}
+
+.dark .el-card {
+  background: #222 !important;
+  border-color: #444 !important;
+}
+
+.dark .el-card__header {
+  background: #2a2a2a !important;
+  border-bottom-color: #4879BD !important;
+}
+
+/* 通用工具类 */
 .back-btn-sm {
-  border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb;
-  color: #6b7280; font-size: 13px; padding: 4px 14px;
+  border-radius: 2px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 13px;
+  padding: 4px 14px;
 }
-.back-btn-sm:hover { border-color: #409eff; color: #409eff; background: #eff6ff; }
-.dark .back-btn-sm { background: #1f2937; border-color: #4b5563; color: #d1d5db; }
-.dark .back-btn-sm:hover { border-color: #60a5fa; color: #60a5fa; background: #1e3a5f; }
 
-.back-btn {
-  margin-bottom: 12px; width: 100%; justify-content: flex-start;
-  border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb;
-  color: #6b7280; font-size: 14px; padding: 8px 16px;
+.back-btn-sm:hover {
+  border-color: var(--tieba-blue);
+  color: var(--tieba-blue);
+  background: #eff6ff;
 }
-.back-btn:hover { border-color: #409eff; color: #409eff; background: #eff6ff; }
-.dark .back-btn { background: #1f2937; border-color: #4b5563; color: #d1d5db; }
-.dark .back-btn:hover { border-color: #60a5fa; color: #60a5fa; background: #1e3a5f; }
+
+.dark .back-btn-sm {
+  background: #1f2937;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+.dark .back-btn-sm:hover {
+  border-color: var(--tieba-blue);
+  color: var(--tieba-blue-light);
+}
+
+.el-table { font-size: 12px; }
+@media (max-width: 768px) { .el-table { font-size: 11px; } }
 </style>
