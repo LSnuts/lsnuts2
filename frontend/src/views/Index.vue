@@ -1,38 +1,24 @@
 <template>
-  <!-- 首页：展示平台介绍和功能入口 -->
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <!-- 顶部欢迎区域 -->
-    <div class="hero text-center px-4 py-10 md:py-16">
-      <div class="max-w-3xl mx-auto">
-        
-        <h1 class="text-2xl md:text-5xl text-white font-bold mb-3">
-          ☁️欢迎光临lsnuts
-        </h1>
-        <div class="text-white/70 text-sm md:text-base mb-4">{{ currentDate }}</div>
-        <p class="text-base md:text-xl text-white/80 mb-8">
-          今天，也是充满希望的一天
-        </p>
-        <div class="flex gap-4 justify-center flex-wrap">
-          <!-- 未登录显示注册和登录按钮 -->
-          <template v-if="!isLoggedIn">
-            <el-button type="primary" size="large" @click="$router.push('/register')" class="!px-8 !py-3 !text-base !rounded-lg">
-              立即注册
-            </el-button>
-            <el-button size="large" @click="$router.push('/login')" class="!px-8 !py-3 !text-base !rounded-lg !bg-white/15 !border-white !text-white hover:!bg-white/25">
-              登录账号
-            </el-button>
-          </template>
-          <template v-else>
-            <el-button type="primary" size="large" @click="$router.push('/drive')" class="!px-8 !py-3 !text-base !rounded-lg">
-              开始使用
-            </el-button>
-          </template>
+    <div class="hero-wrapper relative overflow-hidden">
+      <div class="hero-grid-bg"></div>
+      <div class="hero-glow-globe"></div>
+      <div class="hero-glow-ring"></div>
+      
+      <div class="hero text-center px-4 py-10 md:py-16 relative z-10">
+        <div class="max-w-3xl mx-auto">
+          <h1 class="text-2xl md:text-5xl text-white font-bold mb-3">
+            ☁️欢迎光临lsnuts
+          </h1>
+          <div class="text-white/70 text-sm md:text-base mb-4">{{ currentDate }}</div>
+          <p class="text-base md:text-xl text-white/80 mb-4 typing-effect">
+            {{ displayedText }}<span class="typing-cursor">|</span>
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- 公告展示区 -->
-    <div v-if="announcements.length > 0" class="max-w-5xl mx-auto px-4 -mt-4 pb-6">
+    <div v-if="announcements.length > 0" class="max-w-5xl mx-auto px-4 -mt-4 pb-6 relative z-10">
       <div v-for="ann in announcements" :key="ann.id" 
            class="mb-3 p-4 rounded-lg border"
            :class="{
@@ -51,8 +37,7 @@
       </div>
     </div>
 
-    <!-- 功能卡片展示区 -->
-    <div class="max-w-5xl mx-auto px-4 -mt-6 pb-10">
+    <div class="max-w-5xl mx-auto px-4 -mt-6 pb-10 relative z-10">
       <el-row :gutter="20">
         <el-col :span="24" :md="8" class="mb-5">
           <div class="feature-card dark:!bg-gray-800 dark:!shadow-black/30" @click="$router.push('/drive')">
@@ -93,16 +78,15 @@
 </template>
 
 <script setup>
-// 导入计算属性，根据登录状态显示不同按钮
 import { computed, ref, onMounted } from 'vue'
 import axios from '../axios'
 
-// 判断是否已登录（通过 localStorage 中的 token）
-const isLoggedIn = computed(() => !!localStorage.getItem('lsnuts_token'))
-
 const announcements = ref([])
+const fullText = '今天，也是充满希望的一天'
+const displayedText = ref('')
+let typingIndex = 0
+let typingTimer = null
 
-// 获取当前日期，格式为"今天是XXXX年X月X日"
 const currentDate = computed(() => {
   const now = new Date()
   const year = now.getFullYear()
@@ -110,6 +94,14 @@ const currentDate = computed(() => {
   const day = now.getDate()
   return `今天是${year}年${month}月${day}日`
 })
+
+const startTyping = () => {
+  if (typingIndex < fullText.length) {
+    displayedText.value += fullText[typingIndex]
+    typingIndex++
+    typingTimer = setTimeout(startTyping, 80)
+  }
+}
 
 const loadAnnouncements = async () => {
   try {
@@ -120,14 +112,83 @@ const loadAnnouncements = async () => {
 
 onMounted(() => {
   loadAnnouncements()
+  setTimeout(startTyping, 500)
 })
 </script>
 
 <style scoped>
+.hero-wrapper {
+  position: relative;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #16213e 100%);
+  overflow: hidden;
+}
+
+.hero-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(79, 172, 254, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 172, 254, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+  0% { background-position: 0 0; }
+  100% { background-position: 60px 60px; }
+}
+
+.hero-glow-globe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(79, 172, 254, 0.2) 0%, rgba(79, 172, 254, 0) 70%);
+  border-radius: 50%;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.hero-glow-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  border: 1px solid rgba(79, 172, 254, 0.1);
+  border-radius: 50%;
+  animation: ringRotate 20s linear infinite;
+}
+
+@keyframes ringRotate {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 .hero { 
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   color: white;
 }
+
+.typing-effect {
+  min-height: 1.5em;
+}
+
+.typing-cursor {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .feature-card {
   background: white;
   border-radius: 12px;

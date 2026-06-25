@@ -39,29 +39,33 @@ router.afterEach((to) => {
 })
 
 router.beforeEach(async (to, from) => {
-  // 需要登录的页面：meta.requiresAuth 为 true 或未设置（默认需要）
-  const authRequired = to.meta?.requiresAuth !== false
+  const store = useUserStore()
+  
+  // 公开页面，无需登录检查
+  const publicPaths = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password', '/user/:id']
+  if (publicPaths.includes(to.path) || to.meta?.requiresAuth === false) {
+    return true
+  }
 
-  if (authRequired) {
-    const store = useUserStore()
-    // 如果尚未获取过用户信息，先获取
+  // 需要登录的页面
+  if (!store.isLoggedIn) {
+    // 如果尚未获取过用户信息，尝试获取一次
     if (!store.userInfo || Object.keys(store.userInfo).length === 0) {
-      await store.fetchUserInfo()
+      try {
+        await store.fetchUserInfo()
+      } catch (e) {
+        store.isLoggedIn = false
+        store.userInfo = {}
+      }
     }
     if (!store.isLoggedIn) {
       return '/login'
     }
   }
 
+  // 管理员页面权限检查
   if (to.path === '/admin') {
-    const store = useUserStore()
-    // token 过期时跳登录页
-    if (!store.isLoggedIn) {
-      return '/login'
-    }
-    if (store.userInfo.is_admin === 1) {
-      return true
-    } else {
+    if (store.userInfo.is_admin !== 1) {
       return '/'
     }
   }

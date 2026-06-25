@@ -43,7 +43,9 @@ instance.interceptors.response.use(
     const status = err.response?.status
     
     if (status === 401) {
-      if (window.location.pathname !== '/login') {
+      const currentPath = window.location.pathname
+      const authPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+      if (!authPaths.includes(currentPath)) {
         localStorage.removeItem?.('lsnuts_token')
         showError('登录已失效，请重新登录')
         setTimeout(() => {

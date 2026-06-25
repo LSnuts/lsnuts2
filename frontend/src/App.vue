@@ -116,11 +116,7 @@ const isMobile = ref(false)
 const menuKey = ref(0)
 
 const checkMobile = () => {
-  const wasMobile = isMobile.value
   isMobile.value = window.innerWidth < 768
-  if (wasMobile && !isMobile.value) {
-    menuKey.value++
-  }
 }
 
 const toggleDark = () => {
@@ -133,7 +129,7 @@ const handleLogout = async () => {
   await userStore.logout()
   notifStore.reset()
   drawerVisible.value = false
-  router.push('/login')
+  router.push('/')
 }
 
 const handleDrawerSelect = (index) => {
