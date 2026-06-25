@@ -29,7 +29,59 @@
             <li>响应式设计，桌面端与移动端完美适配</li>
             <li>暗色模式支持，保护夜间使用体验</li>
             <li>管理员后台，高效管理用户和内容</li>
+            <li>用户等级系统，根据发帖数自动升级</li>
           </ul>
+        </div>
+        <div class="feature-card">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-3xl">📊</span>
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">用户等级规则</h2>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">1级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">0-1 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">2级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">2-4 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">4级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">5-9 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">6级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">10-19 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">8级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">20-39 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">10级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">40-79 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">12级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">80-149 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">14级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">150-299 帖</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
+              <div class="font-semibold text-gray-700 dark:text-gray-300">16级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">300-499 帖</div>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2 text-center">
+              <div class="font-semibold text-blue-600 dark:text-blue-400">18级</div>
+              <div class="text-xs text-gray-500 dark:text-gray-500">500+ 帖</div>
+            </div>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-500 mt-3">
+            用户等级根据发帖数量自动计算，在帖子列表的作者面板中展示。等级越高，代表社区活跃度越高！
+          </p>
         </div>
         <div class="feature-card">
           <div class="flex items-center gap-3 mb-3">

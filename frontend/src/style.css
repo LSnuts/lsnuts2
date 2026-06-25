@@ -7,24 +7,3 @@
 body {
   font-family: 'Microsoft YaHei', sans-serif;
 }
-
-:root {
-  --bg-main: #f5f7fa;
-  --bg-card: #ffffff;
-  --text-primary: #374151;
-  --text-secondary: #6b7280;
-  --border-color: #e4e7ed;
-}
-
-.dark {
-  --bg-main: #111827;
-  --bg-card: #1f2937;
-  --text-primary: #e5e7eb;
-  --text-secondary: #9ca3af;
-  --border-color: #374151;
-}
-
-body {
-  background: var(--bg-main);
-  color: var(--text-primary);
-}

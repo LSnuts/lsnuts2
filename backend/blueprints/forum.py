@@ -31,16 +31,21 @@ def forum_list():
     comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
     like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()
     
+    user_post_count_subq = select(Post.user_id, func.count(Post.id).label('count')).group_by(Post.user_id).subquery()
+    
     query = db.session.query(
         Post, 
         User.username, 
         User.is_admin, 
         User.avatar,
         func.coalesce(comment_count_subq.c.count, 0).label('comment_count'),
-        func.coalesce(like_count_subq.c.count, 0).label('like_count')
+        func.coalesce(like_count_subq.c.count, 0).label('like_count'),
+        func.coalesce(user_post_count_subq.c.count, 0).label('user_post_count'),
+        User.create_time.label('user_created')
     ).join(User, Post.user_id == User.id)\
      .outerjoin(comment_count_subq, Post.id == comment_count_subq.c.post_id)\
-     .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)
+     .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)\
+     .outerjoin(user_post_count_subq, Post.user_id == user_post_count_subq.c.user_id)
     
     if search:
         query = query.filter(Post.title.contains(search))
@@ -57,7 +62,7 @@ def forum_list():
     items = query.offset((page - 1) * per_page).limit(per_page).all()
     
     data = []
-    for post, username, is_admin, avatar, comment_count, like_count in items:
+    for post, username, is_admin, avatar, comment_count, like_count, user_post_count, user_created in items:
         data.append({
             'id': post.id,
             'title': post.title,
@@ -70,7 +75,9 @@ def forum_list():
             'like_count': like_count,
             'is_pinned': post.is_pinned,
             'tag': post.tag or '',
-            'image': post.image
+            'image': post.image,
+            'user_post_count': user_post_count,
+            'user_created': user_created.strftime('%Y-%m-%d')
         })
     logger.info(f"[论坛列表] 返回 {len(data)}/{total} 条帖子数据")
     return jsonify({'code':200, 'data':data, 'total': total, 'page': page, 'per_page': per_page})

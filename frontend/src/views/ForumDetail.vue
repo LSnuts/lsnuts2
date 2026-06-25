@@ -145,7 +145,7 @@
 
           <!-- 操作栏 -->
           <div class="floor-actions">
-            <el-button size="small" type="primary" @click="$emit('reply', comment)">
+            <el-button size="small" type="primary" @click="handleReply(comment)">
               💬 回复
             </el-button>
             <span class="action-time">{{ comment.create_time }}</span>
@@ -184,9 +184,11 @@ import axios from '../axios'
 import { API_BASE, DEFAULT_AVATAR_SVG } from '../utils/constants'
 import { renderMarkdown } from '../markdown.js'
 import RichEditor from '../components/RichEditor.vue'
+import { useUserStore } from '../stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const post = ref({})
 const comments = ref([])
@@ -194,14 +196,25 @@ const replyContent = ref('')
 const replying = ref(false)
 const showBackTop = ref(false)
 const highlightId = ref(null)
+const replyingTo = ref(null)
 
 const editVisible = ref(false)
 const editTitle = ref('')
 const editContent = ref('')
 
 const canEdit = computed(() => {
-  return false
+  if (!userStore.isLoggedIn) return false
+  if (userStore.userInfo.is_admin === 1) return true
+  return post.value.user === userStore.userInfo.username
 })
+
+const handleReply = (comment) => {
+  replyingTo.value = comment
+  replyContent.value = `> 回复 @${comment.user}: ${(comment.content || '').substring(0, 50)}\n\n`
+  nextTick(() => {
+    document.querySelector('.quick-reply')?.scrollIntoView({ behavior: 'smooth' })
+  })
+}
 
 const renderMd = (text) => renderMarkdown(text || '')
 

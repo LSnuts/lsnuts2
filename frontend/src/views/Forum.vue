@@ -71,7 +71,15 @@
           </span>
         </span>
         <span class="col-author">
-          <span class="author-name">{{ post.user }}</span>
+          <div class="user-panel" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">
+            <img :src="getAvatar(post)" class="user-avatar" />
+            <div class="user-name">{{ post.user }}</div>
+            <div class="user-info">
+              <div>等级：{{ getLevel(post.user_post_count || 0) }}</div>
+              <div>帖子：{{ post.user_post_count || 0 }}</div>
+              <div>注册：{{ post.user_created }}</div>
+            </div>
+          </div>
         </span>
         <span class="col-reply">{{ post.comment_count || 0 }}</span>
         <span class="col-last">{{ formatTime(post) }}</span>
@@ -81,40 +89,42 @@
       <div v-if="pinnedPosts.length > 0 && normalPosts.length > 0" class="table-divider"></div>
 
       <!-- 普通帖子 -->
-      <div v-infinite-scroll="loadMore" :infinite-scroll-disabled="loading || noMore" infinite-scroll-distance="100">
-        <div
-          v-for="(post, index) in normalPosts"
-          :key="post.id"
-          class="table-row"
-          :class="{ 'row-zebra': index % 2 === 1 }"
-          @click="$router.push(`/forum/detail/${post.id}`)"
-        >
-          <span class="col-status">
-            <span class="status-icon" :class="statusClass(post)">●</span>
+      <div
+        v-for="(post, index) in normalPosts"
+        :key="post.id"
+        class="table-row"
+        :class="{ 'row-zebra': index % 2 === 1 }"
+        @click="$router.push(`/forum/detail/${post.id}`)"
+      >
+        <span class="col-status">
+          <span class="status-icon" :class="statusClass(post)">●</span>
+        </span>
+        <span class="col-title">
+          <span class="post-title">
+            <span v-if="post.tag" class="tag-badge" :class="'tag-' + post.tag">{{ tagLabel(post.tag) }}</span>
+            <span v-if="post.is_admin === 1" class="tag-badge tag-admin">管理</span>
+            <span class="title-text">{{ post.title }}</span>
           </span>
-          <span class="col-title">
-            <span class="post-title">
-              <span v-if="post.tag" class="tag-badge" :class="'tag-' + post.tag">{{ tagLabel(post.tag) }}</span>
-              <span v-if="post.is_admin === 1" class="tag-badge tag-admin">管理</span>
-              <span class="title-text">{{ post.title }}</span>
-            </span>
-          </span>
-          <span class="col-author">
-            <span class="author-name">{{ post.user }}</span>
-          </span>
-          <span class="col-reply">{{ post.comment_count || 0 }}</span>
-          <span class="col-last">{{ formatTime(post) }}</span>
-        </div>
+        </span>
+        <span class="col-author">
+          <div class="user-panel" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">
+            <img :src="getAvatar(post)" class="user-avatar" />
+            <div class="user-name">{{ post.user }}</div>
+            <div class="user-info">
+              <div>等级：{{ getLevel(post.user_post_count || 0) }}</div>
+              <div>帖子：{{ post.user_post_count || 0 }}</div>
+              <div>注册：{{ post.user_created }}</div>
+            </div>
+          </div>
+        </span>
+        <span class="col-reply">{{ post.comment_count || 0 }}</span>
+        <span class="col-last">{{ formatTime(post) }}</span>
       </div>
 
       <!-- 加载状态 -->
       <div v-if="loading && posts.length > 0" class="loading-bar">
         <el-icon class="is-loading"><Loading /></el-icon>
         <span>加载中...</span>
-      </div>
-
-      <div v-if="noMore && posts.length > 0" class="loading-bar">
-        —— 没有更多帖子了 ——
       </div>
 
       <!-- 空状态 -->
@@ -127,9 +137,16 @@
       </div>
     </div>
 
-    <!-- 统计信息 -->
-    <div v-if="posts.length > 0" class="forum-stats">
-      共 {{ total }} 个帖子
+    <!-- 分页器 -->
+    <div v-if="total > pageSize" class="tieba-pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="total"
+        layout="prev, pager, next, jumper, total"
+        small
+        @current-change="handlePageChange"
+      />
     </div>
   </div>
 </template>
@@ -147,7 +164,6 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const loading = ref(false)
-const noMore = ref(false)
 let searchTimer = null
 
 const tagOptions = [
@@ -192,7 +208,29 @@ const formatTime = (post) => {
   return t
 }
 
-const loadPosts = async (append = false) => {
+const getLevel = (postCount) => {
+  if (postCount >= 500) return '18级'
+  if (postCount >= 300) return '16级'
+  if (postCount >= 150) return '14级'
+  if (postCount >= 80) return '12级'
+  if (postCount >= 40) return '10级'
+  if (postCount >= 20) return '8级'
+  if (postCount >= 10) return '6级'
+  if (postCount >= 5) return '4级'
+  if (postCount >= 2) return '2级'
+  return '1级'
+}
+
+const getAvatar = (post) => {
+  if (post.avatar) return API_BASE + post.avatar
+  return DEFAULT_AVATAR_SVG
+}
+
+const getUserId = (username) => {
+  return username
+}
+
+const loadPosts = async () => {
   if (loading.value) return
   loading.value = true
   try {
@@ -204,14 +242,8 @@ const loadPosts = async (append = false) => {
         tag: activeTag.value,
       },
     })
-    const newPosts = res.data.data || []
+    posts.value = res.data.data || []
     total.value = res.data.total || 0
-    if (append) {
-      posts.value.push(...newPosts)
-    } else {
-      posts.value = newPosts
-    }
-    noMore.value = posts.value.length >= total.value
   } catch (e) {
     // ignore
   }
@@ -220,14 +252,11 @@ const loadPosts = async (append = false) => {
 
 const refreshPosts = () => {
   currentPage.value = 1
-  noMore.value = false
-  loadPosts(false)
+  loadPosts()
 }
 
-const loadMore = () => {
-  if (noMore.value || loading.value) return
-  currentPage.value++
-  loadPosts(true)
+const handlePageChange = () => {
+  loadPosts()
 }
 
 const onSearch = () => {
@@ -238,7 +267,7 @@ const onSearch = () => {
 }
 
 onMounted(() => {
-  loadPosts(false)
+  loadPosts()
 })
 
 onUnmounted(() => {
@@ -465,14 +494,9 @@ onUnmounted(() => {
 }
 
 .col-author {
-  width: 90px;
-  text-align: center;
+  width: 160px;
   flex-shrink: 0;
-  color: var(--tieba-text-light);
-  font-size: 12px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .col-reply {
@@ -601,14 +625,48 @@ onUnmounted(() => {
   color: #ef9a9a;
 }
 
-/* 作者名 */
-.author-name {
-  color: var(--tieba-link);
-  font-size: 12px;
+/* 用户面板 */
+.user-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
 }
 
-.author-name:hover {
-  text-decoration: underline;
+.user-panel:hover {
+  background: rgba(0, 128, 255, 0.1);
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 4px;
+  border: 1px solid var(--tieba-border);
+}
+
+.user-name {
+  font-size: 12px;
+  color: var(--tieba-link);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.user-info {
+  font-size: 11px;
+  color: var(--tieba-text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.user-info div {
+  white-space: nowrap;
 }
 
 /* 加载状态 */
@@ -640,12 +698,19 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-/* 统计信息 */
-.forum-stats {
-  text-align: right;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--tieba-text-muted);
+/* 分页器 */
+.tieba-pagination {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  background: var(--tieba-bg-white);
+  border: 1px solid var(--tieba-border);
+  border-top: none;
+}
+
+.dark .tieba-pagination {
+  background: var(--tieba-bg-white);
+  border-color: var(--tieba-border);
 }
 
 /* ---- 移动端适配 ---- */
@@ -664,8 +729,16 @@ onUnmounted(() => {
   }
 
   .col-author {
-    width: 60px;
-    font-size: 11px;
+    width: 120px;
+  }
+
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .user-info {
+    display: none;
   }
 
   .col-reply {
@@ -689,6 +762,10 @@ onUnmounted(() => {
   }
 
   .col-author {
+    width: 80px;
+  }
+
+  .user-info {
     display: none;
   }
 }
