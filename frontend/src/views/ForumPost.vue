@@ -21,7 +21,7 @@
           <label class="form-label">标题</label>
           <el-input
             v-model="form.title"
-            placeholder="请输入帖子标题（不少于5个字符）"
+            placeholder="请输入帖子标题"
             class="form-input"
             size="large"
           />
@@ -145,7 +145,7 @@ const tagOptions = [
 ]
 
 const canSubmit = computed(() => {
-  return form.value.title.trim().length >= 5 && form.value.content.trim().length >= 10
+  return form.value.title.trim().length >= 2 && form.value.content.trim().length >= 2
 })
 
 const triggerImageInput = () => {
@@ -188,7 +188,7 @@ const removeAttach = () => {
 
 const submit = async () => {
   if (!canSubmit.value) {
-    ElMessage.warning('标题至少5个字符，内容至少10个字符')
+    ElMessage.warning('标题和内容不能为空')
     return
   }
   loading.value = true
@@ -317,28 +317,35 @@ const submit = async () => {
 }
 
 .tag-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  font-size: 13px;
-  color: var(--tieba-text-light);
-  background: #f5f5f5;
-  border: 1px solid var(--tieba-border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 6px 14px !important;
+  font-size: 13px !important;
+  color: var(--tieba-text-light) !important;
+  background: #f5f5f5 !important;
+  border: 1px solid var(--tieba-border) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  flex-shrink: 0 !important;
+  min-width: auto !important;
+  line-height: 1.5 !important;
 }
 
 .tag-option:hover {
-  border-color: var(--tieba-blue);
-  color: var(--tieba-blue);
+  border-color: var(--tieba-blue) !important;
+  color: var(--tieba-blue) !important;
+  background: #f0f7ff !important;
 }
 
 .tag-option.active {
-  background: var(--tieba-blue);
-  border-color: var(--tieba-blue);
-  color: #fff;
+  background: var(--tieba-blue) !important;
+  border-color: var(--tieba-blue) !important;
+  color: #fff !important;
 }
 
 .dark .tag-option {
