@@ -29,6 +29,10 @@
         <span>发布时间：{{ post.create_time }}</span>
         <span v-if="post.edit_count > 0" class="meta-sep">|</span>
         <span v-if="post.edit_count > 0">已编辑 {{ post.edit_count }} 次</span>
+        <span class="meta-sep">|</span>
+        <el-button size="small" text @click="onlyOP = !onlyOP">
+          {{ onlyOP ? '显示全部' : '只看楼主' }}
+        </el-button>
       </div>
     </div>
 
@@ -110,7 +114,7 @@
 
     <!-- #2 ~ N 回复楼层 -->
     <div
-      v-for="(comment, index) in flatComments"
+      v-for="(comment, index) in displayComments"
       :key="comment.id"
       :id="'comment-' + comment.id"
       class="floor-container"
@@ -197,6 +201,7 @@ const replying = ref(false)
 const showBackTop = ref(false)
 const highlightId = ref(null)
 const replyingTo = ref(null)
+const onlyOP = ref(false)
 
 const editVisible = ref(false)
 const editTitle = ref('')
@@ -206,6 +211,11 @@ const canEdit = computed(() => {
   if (!userStore.isLoggedIn) return false
   if (userStore.userInfo.is_admin === 1) return true
   return post.value.user === userStore.userInfo.username
+})
+
+const displayComments = computed(() => {
+  if (!onlyOP.value) return flatComments.value
+  return flatComments.value.filter(c => c.user === post.value.user)
 })
 
 const handleReply = (comment) => {

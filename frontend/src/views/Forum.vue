@@ -71,15 +71,7 @@
           </span>
         </span>
         <span class="col-author">
-          <div class="user-panel" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">
-            <img :src="getAvatar(post)" class="user-avatar" />
-            <div class="user-name">{{ post.user }}</div>
-            <div class="user-info">
-              <div>等级：{{ getLevel(post.user_post_count || 0) }}</div>
-              <div>帖子：{{ post.user_post_count || 0 }}</div>
-              <div>注册：{{ post.user_created }}</div>
-            </div>
-          </div>
+          <span class="user-name" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">{{ post.user }}</span>
         </span>
         <span class="col-reply">{{ post.comment_count || 0 }}</span>
         <span class="col-last">{{ formatTime(post) }}</span>
@@ -107,15 +99,7 @@
           </span>
         </span>
         <span class="col-author">
-          <div class="user-panel" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">
-            <img :src="getAvatar(post)" class="user-avatar" />
-            <div class="user-name">{{ post.user }}</div>
-            <div class="user-info">
-              <div>等级：{{ getLevel(post.user_post_count || 0) }}</div>
-              <div>帖子：{{ post.user_post_count || 0 }}</div>
-              <div>注册：{{ post.user_created }}</div>
-            </div>
-          </div>
+          <span class="user-name" @click.stop="$router.push(`/user/profile/${getUserId(post.user)}`)">{{ post.user }}</span>
         </span>
         <span class="col-reply">{{ post.comment_count || 0 }}</span>
         <span class="col-last">{{ formatTime(post) }}</span>
@@ -625,48 +609,19 @@ onUnmounted(() => {
   color: #ef9a9a;
 }
 
-/* 用户面板 */
-.user-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.user-panel:hover {
-  background: rgba(0, 128, 255, 0.1);
-}
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-bottom: 4px;
-  border: 1px solid var(--tieba-border);
-}
-
+/* 用户名 */
 .user-name {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--tieba-link);
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-.user-info {
-  font-size: 11px;
-  color: var(--tieba-text-muted);
-  text-align: center;
-  line-height: 1.4;
-}
-
-.user-info div {
-  white-space: nowrap;
+.user-name:hover {
+  text-decoration: underline;
 }
 
 /* 加载状态 */

@@ -4,6 +4,12 @@
       <img :src="displayAvatar" :alt="userInfo.username"
         class="w-[16vw] h-[16vw] max-w-[150px] max-h-[150px] min-w-[80px] min-h-[80px] object-cover rounded-full shadow-lg mb-3 border-4 border-blue-100 dark:border-blue-900" />
       <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ userInfo.username }}</h1>
+      <div class="flex items-center gap-2 mt-2">
+        <el-tag :type="userInfo.is_admin === 1 ? 'danger' : 'success'" size="small">
+          {{ userInfo.is_admin === 1 ? '管理员' : '普通用户' }}
+        </el-tag>
+        <el-tag type="primary" size="small">Lv.{{ getLevel(userInfo.post_count || 0) }}</el-tag>
+      </div>
     </div>
 
     <div class="flex-row-wrapper">
@@ -31,6 +37,8 @@
       <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
         <div class="flex justify-between py-1.5 border-b dark:border-gray-700"><span>账号码</span><span class="text-gray-800 dark:text-gray-200 font-mono">{{ userInfo.account_code }}</span></div>
         <div class="flex justify-between py-1.5 border-b dark:border-gray-700"><span>注册时间</span><span>{{ userInfo.create_time }}</span></div>
+        <div class="flex justify-between py-1.5 border-b dark:border-gray-700"><span>发帖数</span><span class="text-gray-800 dark:text-gray-200 font-semibold">{{ userInfo.post_count || 0 }} 帖</span></div>
+        <div class="flex justify-between py-1.5 border-b dark:border-gray-700"><span>用户等级</span><span class="text-blue-600 dark:text-blue-400 font-semibold">{{ getLevel(userInfo.post_count || 0) }}级</span></div>
         <div class="flex justify-between py-1.5"><span>权限</span><el-tag :type="userInfo.is_admin === 1 ? 'danger' : 'success'" size="small">{{ userInfo.is_admin === 1 ? '管理员' : '普通用户' }}</el-tag></div>
       </div>
       <div class="mt-4 flex gap-2">
@@ -48,7 +56,7 @@ import { DEFAULT_AVATAR_SVG } from '../utils/constants'
 import { formatCount, getAvatarUrl } from '../utils/helpers'
 import { ElMessage } from 'element-plus'
 
-const userInfo = ref({ username: '用户', account_code: '------', create_time: '----', is_admin: 0 })
+const userInfo = ref({ username: '用户', account_code: '------', create_time: '----', is_admin: 0, post_count: 0 })
 const postsTotal = ref(0)
 const bookmarksTotal = ref(0)
 const notifications = ref([])
@@ -56,6 +64,19 @@ const notifications = ref([])
 const displayAvatar = computed(() => {
   return getAvatarUrl(userInfo.value.avatar) || DEFAULT_AVATAR_SVG
 })
+
+const getLevel = (postCount) => {
+  if (postCount >= 500) return 18
+  if (postCount >= 300) return 16
+  if (postCount >= 150) return 14
+  if (postCount >= 80) return 12
+  if (postCount >= 40) return 10
+  if (postCount >= 20) return 8
+  if (postCount >= 10) return 6
+  if (postCount >= 5) return 4
+  if (postCount >= 2) return 2
+  return 1
+}
 
 const loadUserInfo = async () => {
   try {

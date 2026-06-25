@@ -68,13 +68,15 @@ def api_logout():
 @auth_bp.route('/api/user/info')
 @login_required
 def user_info():
+    post_count = Post.query.filter_by(user_id=current_user.id).count()
     return jsonify({'code': 200, 'data': {
         'id': current_user.id,
         'username': current_user.username,
         'account_code': current_user.account_code,
         'is_admin': current_user.is_admin,
         'create_time': current_user.create_time.strftime('%Y-%m-%d %H:%M:%S'),
-        'avatar': current_user.avatar
+        'avatar': current_user.avatar,
+        'post_count': post_count
     }})
 
 @auth_bp.route('/api/user/avatar', methods=['POST'])
