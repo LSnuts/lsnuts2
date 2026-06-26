@@ -54,6 +54,10 @@
           />
           <div class="user-name">{{ post.user || '匿名用户' }}</div>
           <el-tag v-if="post.is_admin === 1" type="danger" size="small">管理员</el-tag>
+          <div class="user-stats">
+            <div>帖子：{{ post.user_post_count || 0 }}</div>
+            <div>注册：{{ post.user_created || '-' }}</div>
+          </div>
         </div>
         <!-- 右侧内容区 -->
         <div class="floor-content">
@@ -122,6 +126,7 @@
     >
       <div class="floor-header">
         <span class="floor-number">#{{ index + 2 }}</span>
+        <span v-if="comment.user === post.user" class="floor-label op-label">楼主</span>
       </div>
       <div class="floor-body">
         <!-- 左侧用户面板 -->
@@ -133,6 +138,10 @@
           />
           <div class="user-name">{{ comment.user || '匿名用户' }}</div>
           <el-tag v-if="comment.is_admin === 1" type="danger" size="small">管理员</el-tag>
+          <div class="user-stats">
+            <div>帖子：{{ comment.user_post_count || 0 }}</div>
+            <div>注册：{{ comment.user_created || '-' }}</div>
+          </div>
         </div>
         <!-- 右侧内容区 -->
         <div class="floor-content">
@@ -220,10 +229,22 @@ const displayComments = computed(() => {
 
 const handleReply = (comment) => {
   replyingTo.value = comment
-  replyContent.value = `> 回复 @${comment.user}: ${(comment.content || '').substring(0, 50)}\n\n`
+  replyContent.value = `> 回复 @${comment.user}: ${stripMd(comment.content || '').substring(0, 50)}\n\n`
   nextTick(() => {
     document.querySelector('.quick-reply')?.scrollIntoView({ behavior: 'smooth' })
   })
+}
+
+const stripMd = (text) => {
+  return (text || '')
+    .replace(/!\[.*?\]\(.*?\)/g, '[图片]')
+    .replace(/\[.*?\]\(.*?\)/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/`.*?`/g, '')
+    .replace(/~~.*?~~/g, '')
+    .replace(/\n/g, ' ')
+    .trim()
 }
 
 const renderMd = (text) => renderMarkdown(text || '')
@@ -528,6 +549,10 @@ onUnmounted(() => {
   line-height: 18px;
 }
 
+.op-label {
+  background: var(--tieba-blue);
+}
+
 .dark .floor-header {
   background: #2a2a2a;
   border-bottom-color: var(--tieba-border);
@@ -565,6 +590,20 @@ onUnmounted(() => {
   font-weight: bold;
   color: var(--tieba-link);
   word-break: break-all;
+}
+
+.user-stats {
+  font-size: 11px;
+  color: var(--tieba-text-muted);
+  line-height: 1.8;
+  border-top: 1px dashed #e5e5e5;
+  padding-top: 6px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.user-stats div {
+  white-space: nowrap;
 }
 
 .dark .user-panel {

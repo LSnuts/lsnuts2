@@ -132,10 +132,12 @@ def forum_post():
 
 @forum_bp.route('/api/forum/detail/<int:post_id>')
 def forum_detail(post_id):
-    post_data = db.session.query(Post, User.username, User.is_admin, User.avatar).join(User, Post.user_id == User.id).filter(Post.id == post_id).first()
+    post_data = db.session.query(Post, User.username, User.is_admin, User.avatar, User.create_time).join(User, Post.user_id == User.id).filter(Post.id == post_id).first()
     if not post_data:
         return jsonify({'code':400, 'msg':'帖子不存在'})
-    post, post_username, post_is_admin, post_avatar = post_data
+    post, post_username, post_is_admin, post_avatar, user_created = post_data
+    
+    user_post_count = Post.query.filter_by(user_id=post.user_id).count()
     
     like_count = PostLike.query.filter_by(post_id=post_id).count()
     user_liked = False
@@ -144,11 +146,11 @@ def forum_detail(post_id):
         user_liked = PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
         user_bookmarked = Bookmark.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
     
-    all_comments = db.session.query(Comment, User.username, User.is_admin, User.avatar).join(User, Comment.user_id == User.id).filter(Comment.post_id == post_id).order_by(Comment.create_time.asc()).all()
+    all_comments = db.session.query(Comment, User.username, User.is_admin, User.avatar, User.create_time).join(User, Comment.user_id == User.id).filter(Comment.post_id == post_id).order_by(Comment.create_time.asc()).all()
     
     comment_map = {}
     top_comments = []
-    for comment, username, is_admin, avatar in all_comments:
+    for comment, username, is_admin, avatar, c_user_created in all_comments:
         c = {
             'id': comment.id,
             'content': comment.content,
@@ -157,7 +159,9 @@ def forum_detail(post_id):
             'avatar': avatar,
             'parent_id': comment.parent_id,
             'create_time': comment.create_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'replies': []
+            'replies': [],
+            'user_post_count': Post.query.filter_by(user_id=comment.user_id).count(),
+            'user_created': c_user_created.strftime('%Y-%m-%d') if c_user_created else ''
         }
         comment_map[comment.id] = c
         if comment.parent_id:
@@ -170,7 +174,9 @@ def forum_detail(post_id):
         'id': post.id, 'title': post.title, 'content': post.content, 'user': post_username, 'user_id': post.user_id, 'is_admin': post_is_admin, 'avatar': post_avatar, 'create_time': post.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         'tag': post.tag or '', 'edit_count': post.edit_count or 0, 'last_edit_time': post.last_edit_time.strftime('%Y-%m-%d %H:%M:%S') if post.last_edit_time else None,
         'like_count': like_count, 'user_liked': user_liked, 'user_bookmarked': user_bookmarked,
-        'image': post.image, 'attachment_name': post.attachment_name, 'attachment_path': post.attachment_path
+        'image': post.image, 'attachment_name': post.attachment_name, 'attachment_path': post.attachment_path,
+        'user_post_count': user_post_count,
+        'user_created': user_created.strftime('%Y-%m-%d') if user_created else ''
     }, 'current_user_id': current_user.id if current_user.is_authenticated else None, 'comments': top_comments}})
 
 @forum_bp.route('/api/forum/comment/<int:post_id>', methods=['POST'])
