@@ -18,7 +18,7 @@
       <div class="toolbar-right">
         <el-input
           v-model="searchText"
-          placeholder="搜索帖子标题..."
+          placeholder="搜索帖子标题或内容..."
           size="small"
           class="search-input"
           clearable

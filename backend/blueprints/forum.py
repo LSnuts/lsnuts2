@@ -48,7 +48,7 @@ def forum_list():
      .outerjoin(user_post_count_subq, Post.user_id == user_post_count_subq.c.user_id)
     
     if search:
-        query = query.filter(Post.title.contains(search))
+        query = query.filter(db.or_(Post.title.contains(search), Post.content.contains(search)))
     
     if tag:
         if tag == 'other':
