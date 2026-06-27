@@ -47,7 +47,20 @@ def load_or_generate_secret_key():
     return new_key
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175'])
+
+allowed_origins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
+]
+frontend_url = os.environ.get('FRONTEND_URL')
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+CORS(app, supports_credentials=True, origins=allowed_origins)
 app.config['SECRET_KEY'] = load_or_generate_secret_key()
 
 app.config['SESSION_COOKIE_HTTPONLY'] = True

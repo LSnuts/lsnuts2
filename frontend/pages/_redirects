@@ -1,0 +1,3 @@
+/* /index.html 200
+/api/* https://api.118201820.xyz/api/:splat 200
+/static/* https://api.118201820.xyz/static/:splat 200

@@ -1,0 +1,7 @@
+tunnel: lsnuts-tunnel
+credentials-file: ~/.cloudflared/credentials.json
+
+ingress:
+  - hostname: api.118201820.xyz
+    service: http://localhost:5000
+  - service: http_status:404

@@ -1,0 +1,6 @@
+name = "lsnuts-frontend"
+type = "static"
+
+[build]
+command = "npm run build"
+publish = "dist"

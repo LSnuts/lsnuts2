@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: lsnuts-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        description: ElephantSQL 连接地址
+      - key: SECRET_KEY
+        description: Flask 密钥（保持与开发环境一致）
+      - key: FRONTEND_URL
+        description: 前端域名（如 https://www.yourdomain.com）
+      - key: FLASK_ENV
+        value: production
+    plan: starter
