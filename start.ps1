@@ -1,33 +1,26 @@
-$backendPath = (Get-Location).Path + "\backend"
-$frontendPath = (Get-Location).Path + "\frontend"
-$pythonPath = "D:\miniconda3\python.exe"
+﻿Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  Starting lsnuts2 Project" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
 
-Write-Host "=== LSnuts2 Quick Start ===" -ForegroundColor Cyan
+Write-Host "[1/2] Starting backend service..." -ForegroundColor Yellow
+$backendPath = Join-Path $PWD "backend\app.py"
+Start-Process -FilePath "D:\miniconda3\python.exe" -ArgumentList $backendPath
+Write-Host "Backend started on port 5000" -ForegroundColor Green
+Write-Host ""
 
-Write-Host "`n[0/3] Checking/Creating Admin Account..." -ForegroundColor Yellow
-$adminCheck = & $pythonPath "$backendPath\create_admin.py" 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host $adminCheck -ForegroundColor Green
-} else {
-    Write-Host "Admin check/create may have been skipped or already exists." -ForegroundColor DarkYellow
-}
+Write-Host "[2/2] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
+$tunnelPath = Join-Path $PWD "cloudflared.exe"
+$configPath = Join-Path $PWD "cloudflare-tunnel.yml"
+Start-Process -FilePath $tunnelPath -ArgumentList "tunnel","--config",$configPath,"run"
+Write-Host "Cloudflare Tunnel started" -ForegroundColor Green
+Write-Host ""
 
-Write-Host "`n[1/3] Starting Backend Server..." -ForegroundColor Yellow
-Start-Process -FilePath $pythonPath -ArgumentList "app.py" -WorkingDirectory $backendPath
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  Started successfully!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Frontend: https://118201820.xyz" -ForegroundColor White
+Write-Host "API: https://api.118201820.xyz" -ForegroundColor White
+Write-Host "============================================" -ForegroundColor Cyan
 
-Start-Sleep -Seconds 3
-
-Write-Host "`n[2/3] Starting Frontend Server..." -ForegroundColor Yellow
-Start-Process -FilePath "npm.cmd" -ArgumentList "run dev" -WorkingDirectory $frontendPath
-
-Write-Host "`n=== Servers Started! ===" -ForegroundColor Green
-Write-Host "Frontend: http://localhost:5173/"
-Write-Host "Backend:  http://127.0.0.1:5000/"
-Write-Host "`nPress any key to stop..."
-[void][System.Console]::ReadKey($true)
-
-Write-Host "`nStopping servers..."
-taskkill /f /im python.exe /t 2>$null
-taskkill /f /im py.exe /t 2>$null
-taskkill /f /im node.exe /t 2>$null
-Write-Host "Done!"
+Read-Host "Press Enter to exit"
