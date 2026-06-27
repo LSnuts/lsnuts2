@@ -1,5 +1,5 @@
-tunnel: lsnuts-tunnel
-credentials-file: ~/.cloudflared/credentials.json
+tunnel: 4fd39d69-aaff-41f4-b7df-51e709c5ddc6
+credentials-file: C:\Users\ASUS\.cloudflared\4fd39d69-aaff-41f4-b7df-51e709c5ddc6.json
 
 ingress:
   - hostname: api.118201820.xyz
