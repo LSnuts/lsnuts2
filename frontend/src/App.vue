@@ -47,24 +47,9 @@
       </div>
     </el-header>
 
-    <!-- ========== 移动端顶部导航栏 ========== -->
-    <div class="mobile-header">
-      <el-button class="menu-btn" @click="drawerVisible = true">☰</el-button>
-      <div class="logo" @click="$router.push('/')">☁️ lsnuts</div>
-      <div class="flex items-center gap-1">
-        <el-badge
-          v-if="userStore.isLoggedIn"
-          :value="notifStore.unreadCount"
-          :hidden="notifStore.unreadCount === 0"
-        >
-          <el-button circle size="small" @click="showNotifications">
-            <span class="text-base">🔔</span>
-          </el-button>
-        </el-badge>
-        <el-button circle size="small" @click="toggleDark">
-          <span class="text-base">{{ isDark ? '☀️' : '🌙' }}</span>
-        </el-button>
-      </div>
+    <!-- ========== 移动端菜单按钮 ========== -->
+    <div class="mobile-menu-btn" @click="drawerVisible = true">
+      ☰
     </div>
 
     <!-- 移动端侧滑抽屉 -->
@@ -335,37 +320,28 @@ onUnmounted(() => {
 }
 
 /* ============================================
-   移动端导航栏
+   移动端菜单按钮
    ============================================ */
-.mobile-header {
+.mobile-menu-btn {
   display: none;
-  justify-content: space-between;
-  align-items: center;
-  background: #4879BD;
-  padding: 0 10px;
-  height: 44px;
-  border-bottom: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.mobile-header .logo {
-  font-size: 16px;
-  font-weight: bold;
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  background: rgba(72, 121, 189, 0.95);
   color: #fff;
+  font-size: 22px;
+  text-align: center;
+  line-height: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
   cursor: pointer;
 }
 
-.mobile-header .menu-btn {
-  border: none;
-  background: transparent;
-  font-size: 22px;
-  color: #fff;
-}
-
-.mobile-header .el-button {
-  border-color: rgba(255,255,255,0.3) !important;
-  background: transparent !important;
-  color: #fff !important;
+.mobile-menu-btn:hover {
+  background: rgba(72, 121, 189, 1);
 }
 
 /* ============================================
@@ -425,11 +401,11 @@ onUnmounted(() => {
   .desktop-header {
     display: none !important;
   }
-  .mobile-header {
-    display: flex !important;
+  .mobile-menu-btn {
+    display: block !important;
   }
   .tieba-main {
-    min-height: calc(100vh - 44px - 36px);
+    min-height: calc(100vh - 36px);
   }
   .tieba-content-wrapper {
     padding: 8px;
@@ -437,7 +413,7 @@ onUnmounted(() => {
 }
 
 @media (min-width: 769px) {
-  .mobile-header {
+  .mobile-menu-btn {
     display: none !important;
   }
 }
@@ -449,8 +425,8 @@ onUnmounted(() => {
   background: #2c5a8a;
 }
 
-.dark .mobile-header {
-  background: #2c5a8a;
+.dark .mobile-menu-btn {
+  background: rgba(44, 90, 138, 0.95);
 }
 
 .dark .tieba-main {
