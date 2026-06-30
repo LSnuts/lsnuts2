@@ -398,8 +398,15 @@ onUnmounted(() => {
    响应式
    ============================================ */
 @media (max-width: 768px) {
-  .desktop-header {
+  .desktop-header,
+  .tieba-header.desktop-header,
+  .app-container > .el-header.desktop-header {
     display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
   }
   .mobile-menu-btn {
     display: block !important;
