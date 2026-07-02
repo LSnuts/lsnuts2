@@ -1,16 +1,15 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[System.Console]::InputEncoding = [System.Text.Encoding]::UTF8
-chcp 65001 > $null
-
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+﻿$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    Write-Host "需要管理员权限启动 PostgreSQL 服务..." -ForegroundColor Yellow
-    Write-Host "正在重新以管理员身份运行..." -ForegroundColor Yellow
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -Command ""[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; [System.Console]::InputEncoding=[System.Text.Encoding]::UTF8; chcp 65001 > `$null; & `"$($MyInvocation.MyCommand.Path)`""" -Verb RunAs -Wait
+    $scriptPath = $MyInvocation.MyCommand.Path
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs -Wait
     exit 0
 }
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[System.Console]::InputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 > $null
 
 $projectDir = $PSScriptRoot
 
