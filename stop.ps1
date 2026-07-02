@@ -1,4 +1,14 @@
-﻿Write-Host "============================================" -ForegroundColor Red
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+$isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "需要管理员权限停止 PostgreSQL 服务..." -ForegroundColor Yellow
+    Write-Host "正在重新以管理员身份运行..." -ForegroundColor Yellow
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs -Wait
+    exit 0
+}
+
+Write-Host "============================================" -ForegroundColor Red
 Write-Host "  Stopping lsnuts2 Project" -ForegroundColor Red
 Write-Host "============================================" -ForegroundColor Red
 Write-Host ""
@@ -30,9 +40,7 @@ if ($pgService -and $pgService.Status -eq 'Running') {
         Stop-Service postgresql-x64-18 -ErrorAction Stop
         Write-Host "PostgreSQL stopped" -ForegroundColor Green
     } catch {
-        Write-Host "Trying with admin privileges..." -ForegroundColor Yellow
-        Start-Process -FilePath "powershell.exe" -ArgumentList "-Command", "Stop-Service postgresql-x64-18" -Verb RunAs -Wait
-        Write-Host "PostgreSQL stopped" -ForegroundColor Green
+        Write-Host "ERROR: Failed to stop PostgreSQL: $_" -ForegroundColor Red
     }
 } else {
     Write-Host "PostgreSQL is not running" -ForegroundColor Gray

@@ -1,4 +1,14 @@
-﻿Write-Host "============================================" -ForegroundColor Cyan
+﻿$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+$isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "需要管理员权限启动 PostgreSQL 服务..." -ForegroundColor Yellow
+    Write-Host "正在重新以管理员身份运行..." -ForegroundColor Yellow
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs -Wait
+    exit 0
+}
+
+Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Starting lsnuts2 Project" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
@@ -16,17 +26,9 @@ if ($pgService -and $pgService.Status -eq 'Running') {
         if ($pgService.Status -eq 'Running') {
             Write-Host "PostgreSQL started successfully" -ForegroundColor Green
         } else {
-            Write-Host "Failed to start PostgreSQL, trying with admin privileges..." -ForegroundColor Yellow
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command", "Start-Service postgresql-x64-18" -Verb RunAs -Wait
-            Start-Sleep -Seconds 3
-            $pgService = Get-Service postgresql-x64-18
-            if ($pgService.Status -eq 'Running') {
-                Write-Host "PostgreSQL started successfully" -ForegroundColor Green
-            } else {
-                Write-Host "ERROR: Failed to start PostgreSQL" -ForegroundColor Red
-                Read-Host "Press Enter to exit"
-                exit 1
-            }
+            Write-Host "ERROR: Failed to start PostgreSQL" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
         }
     } catch {
         Write-Host "ERROR: Failed to start PostgreSQL: $_" -ForegroundColor Red
