@@ -8,7 +8,7 @@ $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::A
 if (-not $isAdmin) {
     Write-Host "需要管理员权限停止 PostgreSQL 服务..." -ForegroundColor Yellow
     Write-Host "正在重新以管理员身份运行..." -ForegroundColor Yellow
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"" -Verb RunAs -Wait
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -Command ""[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; [System.Console]::InputEncoding=[System.Text.Encoding]::UTF8; chcp 65001 > `$null; & `"$($MyInvocation.MyCommand.Path)`""" -Verb RunAs -Wait
     exit 0
 }
 
