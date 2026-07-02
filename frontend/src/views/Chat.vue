@@ -97,6 +97,7 @@
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '../stores/user';
+import axios from '../axios';
 const userStore = useUserStore();
 const router = useRouter();
 const onlineUsers = ref([]);
@@ -108,10 +109,9 @@ const messagesContainer = ref(null);
 let socket = null;
 const fetchOnlineUsers = async () => {
  try {
- const response = await fetch('/api/users/online');
- const data = await response.json();
- if (data.code === 200) {
- onlineUsers.value = data.data.filter(u => u.id !== userStore.userInfo.id);
+ const response = await axios.get('/api/users/online');
+ if (response.data.code === 200) {
+ onlineUsers.value = response.data.data.filter(u => u.id !== userStore.userInfo.id);
  }
  }
  catch (error) {
@@ -126,10 +126,9 @@ const selectUser = (user) => {
 };
 const fetchChatHistory = async (otherId) => {
  try {
- const response = await fetch(`/api/chat/history/${otherId}`);
- const data = await response.json();
- if (data.code === 200) {
- messages.value = data.data;
+ const response = await axios.get(`/api/chat/history/${otherId}`);
+ if (response.data.code === 200) {
+ messages.value = response.data.data;
  scrollToBottom();
  }
  }
@@ -142,15 +141,12 @@ const sendMessage = async () => {
  return;
  const content = messageInput.value.trim();
  messageInput.value = '';
- if (!socket) {
  try {
- const response = await fetch('/api/chat/send', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ receiver_id: selectedUser.value.id, content })
+ const response = await axios.post('/api/chat/send', {
+ receiver_id: selectedUser.value.id,
+ content
  });
- const data = await response.json();
- if (data.code === 200) {
+ if (response.data.code === 200) {
  messages.value.push({
  sender: userStore.userInfo.username,
  sender_id: userStore.userInfo.id,
@@ -165,13 +161,6 @@ const sendMessage = async () => {
  }
  catch (error) {
  ElMessage.error('发送失败');
- }
- }
- else {
- socket.emit('send_message', {
- receiver_id: selectedUser.value.id,
- content
- });
  }
 };
 const scrollToBottom = () => {
