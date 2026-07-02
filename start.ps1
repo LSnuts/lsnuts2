@@ -8,6 +8,8 @@ if (-not $isAdmin) {
     exit 0
 }
 
+$projectDir = $PSScriptRoot
+
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Starting lsnuts2 Project" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
@@ -39,7 +41,7 @@ if ($pgService -and $pgService.Status -eq 'Running') {
 Write-Host ""
 
 Write-Host "[2/3] Starting backend service..." -ForegroundColor Yellow
-$backendPath = Join-Path $PWD "backend\app.py"
+$backendPath = Join-Path $projectDir "backend\app.py"
 Start-Process -FilePath "D:\miniconda3\python.exe" -ArgumentList $backendPath
 Write-Host "Waiting for backend to start..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
@@ -63,8 +65,8 @@ if ($backendRunning) {
 Write-Host ""
 
 Write-Host "[3/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
-$tunnelPath = Join-Path $PWD "cloudflared.exe"
-$configPath = Join-Path $PWD "cloudflare-tunnel.yml"
+$tunnelPath = Join-Path $projectDir "cloudflared.exe"
+$configPath = Join-Path $projectDir "cloudflare-tunnel.yml"
 Start-Process -FilePath $tunnelPath -ArgumentList "tunnel","--config",$configPath,"run"
 Write-Host "Waiting for Cloudflare Tunnel to start..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
