@@ -16,6 +16,7 @@ const routes = [
   { path: '/settings', component: () => import('./views/Settings.vue'), meta: { title: '设置' } },
   { path: '/drive', component: () => import('./views/Drive.vue'), meta: { title: '我的网盘' } },
   { path: '/forum', component: () => import('./views/Forum.vue'), meta: { title: '论坛' } },
+  { path: '/chat', component: () => import('./views/Chat.vue'), meta: { title: '聊天室' } },
   { path: '/forum/detail/:id', component: () => import('./views/ForumDetail.vue'), meta: { title: '帖子详情' } },
   { path: '/forum/post', component: () => import('./views/ForumPost.vue'), meta: { title: '发布帖子' } },
   { path: '/admin', component: () => import('./views/Admin.vue'), meta: { title: '管理后台' } },
@@ -42,8 +43,8 @@ router.beforeEach(async (to, from) => {
   const store = useUserStore()
   
   // 公开页面，无需登录检查
-  const publicPaths = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password', '/user/:id']
-  const publicRoutes = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password']
+  const publicPaths = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password', '/user/:id', '/chat']
+  const publicRoutes = ['/', '/login', '/register', '/about', '/forgot-password', '/reset-password', '/chat']
   if (publicRoutes.includes(to.path) || to.meta?.requiresAuth === false || to.path.startsWith('/user/') || to.path.startsWith('/forum/detail/')) {
     return true
   }
