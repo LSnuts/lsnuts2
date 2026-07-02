@@ -95,7 +95,12 @@ def notification_delete(notif_id):
 def online_users():
     logger.info(f"[在线用户] 用户 {current_user.id} 请求在线用户列表")
     
-    users = User.query.filter(User.id != current_user.id).all()
+    from app import online_users_sockets
+    
+    online_user_ids = set(online_users_sockets.keys())
+    online_user_ids.discard(str(current_user.id))
+    
+    users = User.query.filter(User.id.in_([int(uid) for uid in online_user_ids])).all()
     
     data = []
     for user in users:
@@ -103,10 +108,11 @@ def online_users():
             'id': user.id,
             'username': user.username,
             'account_code': user.account_code,
-            'avatar': user.avatar
+            'avatar': user.avatar,
+            'is_online': True
         })
     
-    logger.info(f"[在线用户] 返回 {len(data)} 个用户")
+    logger.info(f"[在线用户] 返回 {len(data)} 个在线用户")
     return jsonify({'code': 200, 'data': data})
 
 @chat_bp.route('/api/chat/send', methods=['POST'])

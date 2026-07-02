@@ -8,6 +8,10 @@
     </div>
 
     <div v-else class="chat-main">
+      <div class="mobile-user-list-btn" @click="showUserList = true">
+        ☰ 在线 {{ onlineUsers.length }} 人
+      </div>
+
       <div class="chat-sidebar">
         <div class="chat-sidebar-header">
           <h3>💬 聊天室</h3>
@@ -90,6 +94,39 @@
         </div>
       </div>
     </div>
+
+    <el-drawer v-model="showUserList" direction="ltr" size="280px" :with-header="false">
+      <div class="drawer-user-list">
+        <div class="drawer-header">
+          <h3>💬 聊天室</h3>
+          <div class="online-count">在线 {{ onlineUsers.length }} 人</div>
+        </div>
+        <div class="drawer-users">
+          <div
+            v-for="user in onlineUsers"
+            :key="user.id"
+            class="drawer-user-item"
+            :class="{ active: selectedUserId === user.id }"
+            @click="selectUserAndClose(user)"
+          >
+            <div class="drawer-user-avatar">
+              <el-avatar :size="48" :src="user.avatar ? `/api/uploads/${user.avatar}` : ''" icon="User">
+                {{ user.username.charAt(0) }}
+              </el-avatar>
+              <span class="online-dot"></span>
+            </div>
+            <div class="drawer-user-info">
+              <div class="drawer-user-name">{{ user.username }}</div>
+              <div class="drawer-user-code">{{ user.account_code }}</div>
+            </div>
+          </div>
+          <div v-if="onlineUsers.length === 0" class="drawer-empty">
+            <div class="empty-icon">👥</div>
+            <p>暂无在线用户</p>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -106,7 +143,7 @@ const selectedUserId = ref(null);
 const messages = ref([]);
 const messageInput = ref('');
 const messagesContainer = ref(null);
-let socket = null;
+const showUserList = ref(false);
 const fetchOnlineUsers = async () => {
  try {
  const response = await axios.get('/api/users/online');
@@ -123,6 +160,10 @@ const selectUser = (user) => {
  selectedUserId.value = user.id;
  messages.value = [];
  fetchChatHistory(user.id);
+};
+const selectUserAndClose = (user) => {
+ selectUser(user);
+ showUserList.value = false;
 };
 const fetchChatHistory = async (otherId) => {
  try {
@@ -173,55 +214,18 @@ const scrollToBottom = () => {
 const clearHistory = () => {
  messages.value = [];
 };
-const initSocket = () => {
- const socketProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
- const socketUrl = `${socketProtocol}//${window.location.host}`;
- try {
- socket = new WebSocket(socketUrl);
- socket.onopen = () => {
- console.log('WebSocket连接成功');
- socket.send(JSON.stringify({
- type: 'join',
- user_id: userStore.userInfo.id
- }));
- };
- socket.onmessage = (event) => {
- const data = JSON.parse(event.data);
- if (data.type === 'receive_message') {
- if (data.receiver_id === selectedUserId.value || data.sender_id === selectedUserId.value) {
- messages.value.push(data);
- scrollToBottom();
- }
- }
- };
- socket.onclose = () => {
- console.log('WebSocket连接关闭');
- };
- socket.onerror = (error) => {
- console.error('WebSocket错误:', error);
- };
- }
- catch (error) {
- console.warn('WebSocket连接失败，使用HTTP方式');
- }
-};
 watch(() => userStore.isLoggedIn, (val) => {
  if (val) {
  fetchOnlineUsers();
- initSocket();
  }
 });
 onMounted(() => {
  if (userStore.isLoggedIn) {
  fetchOnlineUsers();
- initSocket();
  }
- setInterval(fetchOnlineUsers, 30000);
+ setInterval(fetchOnlineUsers, 15000);
 });
 onUnmounted(() => {
- if (socket) {
- socket.close();
- }
 });
 </script>
 
@@ -256,6 +260,10 @@ onUnmounted(() => {
 .chat-login-required p {
   color: #999;
   margin-bottom: 20px;
+}
+
+.mobile-user-list-btn {
+  display: none;
 }
 
 .chat-main {
@@ -543,24 +551,141 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.drawer-user-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.drawer-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--tieba-border);
+}
+
+.drawer-header h3 {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  color: var(--tieba-blue);
+}
+
+.drawer-users {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.drawer-user-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  cursor: pointer;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+.drawer-user-item:hover {
+  background: rgba(72, 121, 189, 0.1);
+}
+
+.drawer-user-item.active {
+  background: rgba(72, 121, 189, 0.2);
+}
+
+.drawer-user-avatar {
+  position: relative;
+  margin-right: 16px;
+}
+
+.drawer-user-info {
+  flex: 1;
+}
+
+.drawer-user-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.dark .drawer-user-name {
+  color: #fff;
+}
+
+.drawer-user-code {
+  font-size: 13px;
+  color: #999;
+}
+
+.drawer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.drawer-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.drawer-empty p {
+  color: #999;
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
+  .mobile-user-list-btn {
+    display: block;
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    z-index: 100;
+    background: rgba(72, 121, 189, 0.95);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+
   .chat-main {
     flex-direction: column;
+    border: none;
+    border-radius: 0;
   }
-  
+
   .chat-sidebar {
-    width: 100%;
-    height: 200px;
-    border-right: none;
-    border-bottom: 1px solid var(--tieba-border);
+    display: none;
   }
-  
+
+  .chat-area {
+    height: calc(100vh - 60px);
+  }
+
   .chat-messages {
-    min-height: 300px;
+    flex: 1;
   }
-  
+
   .message-content {
     max-width: 85%;
+  }
+
+  .chat-room-header {
+    padding: 10px 12px;
+  }
+
+  .chat-input-area {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-user-list-btn {
+    display: none;
   }
 }
 </style>

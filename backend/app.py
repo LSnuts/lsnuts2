@@ -95,6 +95,23 @@ socketio = SocketIO(app, cors_allowed_origins=['http://localhost:5173', 'http://
 limiter = Limiter(get_remote_address, app=app, default_limits=["100 per minute"])
 migrate = Migrate(app, db)
 
+online_users_sockets = {}
+
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"[SocketIO-connect] 新连接 - sid: {request.sid}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info(f"[SocketIO-disconnect] 连接断开 - sid: {request.sid}")
+    for user_id, sids in list(online_users_sockets.items()):
+        if request.sid in sids:
+            sids.remove(request.sid)
+            if not sids:
+                del online_users_sockets[user_id]
+            logger.info(f"[SocketIO-disconnect] 用户 {user_id} 离线")
+            break
+
 from blueprints.auth import auth_bp
 from blueprints.forum import forum_bp
 from blueprints.drive import drive_bp
@@ -131,7 +148,10 @@ def handle_join(data):
     logger.info(f"[SocketIO-join] 用户加入 - user_id: {user_id}, sid: {request.sid}")
     if user_id:
         socketio.server.enter_room(request.sid, str(user_id))
-        logger.info(f"[SocketIO-join] 用户 {user_id} 已加入房间")
+        if str(user_id) not in online_users_sockets:
+            online_users_sockets[str(user_id)] = set()
+        online_users_sockets[str(user_id)].add(request.sid)
+        logger.info(f"[SocketIO-join] 用户 {user_id} 已加入房间，在线用户: {list(online_users_sockets.keys())}")
 
 @socketio.on('send_message')
 def handle_send_msg(data):
