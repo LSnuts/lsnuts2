@@ -89,3 +89,49 @@ def notification_delete(notif_id):
     db.session.delete(n)
     db.session.commit()
     return jsonify({'code':200, 'msg':'已删除'})
+
+@chat_bp.route('/api/users/online')
+@login_required
+def online_users():
+    logger.info(f"[在线用户] 用户 {current_user.id} 请求在线用户列表")
+    
+    users = User.query.filter(User.id != current_user.id).all()
+    
+    data = []
+    for user in users:
+        data.append({
+            'id': user.id,
+            'username': user.username,
+            'account_code': user.account_code,
+            'avatar': user.avatar
+        })
+    
+    logger.info(f"[在线用户] 返回 {len(data)} 个用户")
+    return jsonify({'code': 200, 'data': data})
+
+@chat_bp.route('/api/chat/send', methods=['POST'])
+@login_required
+def send_chat_message():
+    data = request.get_json()
+    receiver_id = data.get('receiver_id')
+    content = data.get('content')
+    
+    if not receiver_id or not content:
+        return jsonify({'code': 400, 'msg': '缺少参数'}), 400
+    
+    receiver = User.query.get(receiver_id)
+    if not receiver:
+        return jsonify({'code': 404, 'msg': '用户不存在'}), 404
+    
+    msg = Message(sender_id=current_user.id, receiver_id=receiver_id, content=content)
+    db.session.add(msg)
+    db.session.commit()
+    
+    logger.info(f"[私聊消息] 用户 {current_user.id} -> 用户 {receiver_id}: {content[:50]}")
+    
+    return jsonify({'code': 200, 'msg': '发送成功', 'data': {
+        'sender': current_user.username,
+        'sender_id': current_user.id,
+        'content': content,
+        'send_time': msg.send_time.strftime('%Y-%m-%d %H:%M:%S')
+    }})

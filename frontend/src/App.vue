@@ -18,6 +18,7 @@
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/drive">网盘</el-menu-item>
           <el-menu-item index="/forum">论坛</el-menu-item>
+          <el-menu-item index="/chat">聊天室</el-menu-item>
           <el-menu-item index="/about">关于</el-menu-item>
           <template v-if="!userStore.isLoggedIn">
             <el-menu-item index="/login">登录</el-menu-item>
@@ -60,6 +61,7 @@
           <el-menu-item index="/">🏠 首页</el-menu-item>
           <el-menu-item index="/drive">💾 网盘</el-menu-item>
           <el-menu-item index="/forum">📝 论坛</el-menu-item>
+          <el-menu-item index="/chat">💬 聊天室</el-menu-item>
           <el-menu-item index="/about">ℹ️ 关于</el-menu-item>
           <template v-if="!userStore.isLoggedIn">
             <el-menu-item index="/login">🔑 登录</el-menu-item>
