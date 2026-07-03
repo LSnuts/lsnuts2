@@ -45,7 +45,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="40" :src="user.avatar ? `/api/uploads/${user.avatar}` : ''" icon="User">
+              <el-avatar :size="40" :src="user.avatar ? `https://api.118201820.xyz/api/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -53,13 +53,14 @@
                 <div class="search-code">{{ user.account_code }}</div>
               </div>
               <el-button 
-                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id)" 
+                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id) && !isPendingRequest(user.id)" 
                 type="primary" 
                 size="small" 
                 @click="sendFriendRequest(user)"
               >
                 添加好友
               </el-button>
+              <div v-else-if="isPendingRequest(user.id)" class="pending-tag">等待同意</div>
               <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
               <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
@@ -80,7 +81,7 @@
             @click="selectUser(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="40" :src="friend.avatar ? `/api/uploads/${friend.avatar}` : ''" icon="User">
+              <el-avatar :size="40" :src="friend.avatar ? `https://api.118201820.xyz/api/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -102,7 +103,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="40" :src="req.avatar ? `/api/uploads/${req.avatar}` : ''" icon="User">
+              <el-avatar :size="40" :src="req.avatar ? `https://api.118201820.xyz/api/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -219,7 +220,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="48" :src="user.avatar ? `/api/uploads/${user.avatar}` : ''" icon="User">
+              <el-avatar :size="48" :src="user.avatar ? `https://api.118201820.xyz/api/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -227,13 +228,14 @@
                 <div class="search-code">{{ user.account_code }}</div>
               </div>
               <el-button 
-                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id)" 
+                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id) && !isPendingRequest(user.id)" 
                 type="primary" 
                 size="small" 
                 @click="sendFriendRequest(user)"
               >
                 添加好友
               </el-button>
+              <div v-else-if="isPendingRequest(user.id)" class="pending-tag">等待同意</div>
               <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
               <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
@@ -254,7 +256,7 @@
             @click="selectUserAndClose(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="48" :src="friend.avatar ? `/api/uploads/${friend.avatar}` : ''" icon="User">
+              <el-avatar :size="48" :src="friend.avatar ? `https://api.118201820.xyz/api/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -276,7 +278,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="48" :src="req.avatar ? `/api/uploads/${req.avatar}` : ''" icon="User">
+              <el-avatar :size="48" :src="req.avatar ? `https://api.118201820.xyz/api/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -309,6 +311,7 @@ const searchQuery = ref('');
 const searchResults = ref([]);
 const friends = ref([]);
 const pendingRequests = ref([]);
+const pendingSentRequests = ref([]);
 const activeTab = ref('friends');
 
 const selectedUser = ref(null);
@@ -364,6 +367,10 @@ const isFriend = (userId) => {
   return friends.value.some(f => f.id === userId);
 };
 
+const isPendingRequest = (userId) => {
+  return pendingSentRequests.value.includes(userId);
+};
+
 const sendFriendRequest = async (user) => {
   try {
     const response = await axios.post('/api/friends/request', {
@@ -371,6 +378,9 @@ const sendFriendRequest = async (user) => {
     });
     if (response.data.code === 200) {
       ElMessage.success('好友请求已发送');
+      if (!pendingSentRequests.value.includes(user.id)) {
+        pendingSentRequests.value.push(user.id);
+      }
     } else {
       ElMessage.error(response.data.msg || '发送失败');
     }
@@ -652,10 +662,13 @@ onMounted(() => {
   color: #999;
 }
 
-.friend-tag, .self-tag {
+.friend-tag, .self-tag, .pending-tag {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+.friend-tag {
   background: #e8f5e9;
   color: #2e7d32;
 }
@@ -673,6 +686,16 @@ onMounted(() => {
 .dark .self-tag {
   background: #0d47a1;
   color: #90caf9;
+}
+
+.pending-tag {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.dark .pending-tag {
+  background: #bf360c;
+  color: #ffcc80;
 }
 
 .friends-list, .pending-list {
@@ -1050,6 +1073,53 @@ onMounted(() => {
   .chat-input-area {
     padding: 10px 12px;
     gap: 8px;
+  }
+
+  .drawer-content {
+    padding: 0;
+  }
+
+  .drawer-tabs {
+    padding: 6px;
+  }
+
+  .drawer-tabs .tab-btn {
+    padding: 10px 6px;
+    font-size: 12px;
+  }
+
+  .search-item, .friend-item, .pending-item {
+    padding: 12px;
+    margin-bottom: 6px;
+  }
+
+  .search-avatar, .friend-avatar, .pending-avatar {
+    margin-right: 10px;
+  }
+
+  .search-info, .friend-info, .pending-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-name, .friend-name, .pending-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-code, .friend-code, .pending-code {
+    font-size: 11px;
+  }
+
+  .pending-actions {
+    flex-shrink: 0;
+  }
+
+  .pending-actions .el-button {
+    padding: 4px 8px;
+    font-size: 11px;
   }
 }
 
