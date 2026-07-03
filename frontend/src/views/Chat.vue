@@ -3,37 +3,116 @@
     <div v-if="!userStore.isLoggedIn" class="chat-login-required">
       <div class="login-icon">💬</div>
       <h3>请先登录</h3>
-      <p>登录后可以与其他用户聊天</p>
+      <p>登录后可以搜索用户、添加好友</p>
       <el-button type="primary" @click="$router.push('/login')">去登录</el-button>
     </div>
 
     <div v-else class="chat-main">
       <div class="mobile-user-list-btn" @click="showUserList = true">
-        ☰ 在线 {{ onlineUsers.length }} 人
+        ☰ 好友列表
       </div>
 
       <div class="chat-sidebar">
         <div class="chat-sidebar-header">
-          <h3>💬 聊天室</h3>
-          <div class="online-count">在线 {{ onlineUsers.length }} 人</div>
+          <h3>💬 聊天</h3>
         </div>
-        <div class="chat-users-list">
-          <div
-            v-for="user in onlineUsers"
-            :key="user.id"
-            class="user-item"
-            :class="{ active: selectedUserId === user.id }"
-            @click="selectUser(user)"
+
+        <div class="chat-tabs">
+          <button 
+            v-for="tab in tabs" 
+            :key="tab.key" 
+            :class="['tab-btn', { active: activeTab === tab.key }]"
+            @click="activeTab = tab.key"
           >
-            <div class="user-avatar">
+            {{ tab.label }}
+            <span v-if="tab.count > 0" class="tab-badge">{{ tab.count }}</span>
+          </button>
+        </div>
+
+        <div v-if="activeTab === 'search'" class="search-section">
+          <el-input 
+            v-model="searchQuery" 
+            placeholder="搜索用户名或账号"
+            prefix-icon="Search"
+            @keyup.enter="doSearch"
+            class="search-input"
+          />
+          <el-button type="primary" @click="doSearch" style="width:100%;margin-top:8px;">搜索</el-button>
+          
+          <div v-if="searchResults.length > 0" class="search-results">
+            <div 
+              v-for="user in searchResults" 
+              :key="user.id" 
+              class="search-item"
+            >
               <el-avatar :size="40" :src="user.avatar ? `/api/uploads/${user.avatar}` : ''" icon="User">
                 {{ user.username.charAt(0) }}
               </el-avatar>
-              <span class="online-dot"></span>
+              <div class="search-info">
+                <div class="search-name">{{ user.username }}</div>
+                <div class="search-code">{{ user.account_code }}</div>
+              </div>
+              <el-button 
+                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id)" 
+                type="primary" 
+                size="small" 
+                @click="sendFriendRequest(user)"
+              >
+                添加好友
+              </el-button>
+              <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
+              <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
-            <div class="user-info">
-              <div class="user-name">{{ user.username }}</div>
-              <div class="user-code">{{ user.account_code }}</div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'friends'" class="friends-list">
+          <div v-if="friends.length === 0" class="empty-friends">
+            <div class="empty-icon">👥</div>
+            <p>暂无好友</p>
+            <p>去搜索添加好友吧</p>
+          </div>
+          <div 
+            v-for="friend in friends" 
+            :key="friend.id" 
+            class="friend-item"
+            :class="{ active: selectedUserId === friend.id }"
+            @click="selectUser(friend)"
+          >
+            <div class="friend-avatar">
+              <el-avatar :size="40" :src="friend.avatar ? `/api/uploads/${friend.avatar}` : ''" icon="User">
+                {{ friend.username.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="friend-info">
+              <div class="friend-name">{{ friend.username }}</div>
+              <div class="friend-code">{{ friend.account_code }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'pending'" class="pending-list">
+          <div v-if="pendingRequests.length === 0" class="empty-pending">
+            <div class="empty-icon">📭</div>
+            <p>暂无待处理请求</p>
+          </div>
+          <div 
+            v-for="req in pendingRequests" 
+            :key="req.id" 
+            class="pending-item"
+          >
+            <div class="pending-avatar">
+              <el-avatar :size="40" :src="req.avatar ? `/api/uploads/${req.avatar}` : ''" icon="User">
+                {{ req.username.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="pending-info">
+              <div class="pending-name">{{ req.username }}</div>
+              <div class="pending-code">{{ req.account_code }}</div>
+            </div>
+            <div class="pending-actions">
+              <el-button type="success" size="small" @click="acceptFriendRequest(req)">接受</el-button>
+              <el-button type="danger" size="small" @click="rejectFriendRequest(req)">拒绝</el-button>
             </div>
           </div>
         </div>
@@ -42,8 +121,8 @@
       <div class="chat-area">
         <div v-if="!selectedUser" class="chat-empty">
           <div class="empty-icon">💬</div>
-          <h3>选择一个用户开始聊天</h3>
-          <p>点击左侧在线用户列表开始对话</p>
+          <h3>选择一个好友开始聊天</h3>
+          <p>从左侧好友列表选择好友</p>
         </div>
 
         <div v-else class="chat-room">
@@ -54,6 +133,12 @@
             <div class="chat-room-info">
               <div class="chat-room-name">{{ selectedUser.username }}</div>
               <div class="chat-room-code">{{ selectedUser.account_code }}</div>
+              <div v-if="!isFriend(selectedUser.id)" class="chat-room-status">
+                <span class="status-warning">临时聊天（{{ tempMsgCount }}/5）</span>
+              </div>
+              <div v-else class="chat-room-status">
+                <span class="status-success">已好友</span>
+              </div>
             </div>
             <div class="chat-room-actions">
               <el-button circle size="small" @click="clearHistory">🗑</el-button>
@@ -85,44 +170,124 @@
           <div class="chat-input-area">
             <el-input
               v-model="messageInput"
-              placeholder="输入消息..."
+              :placeholder="!isFriend(selectedUser.id) && tempMsgCount >= 5 ? '临时聊天已达上限，请添加好友' : '输入消息...'"
+              :disabled="!isFriend(selectedUser.id) && tempMsgCount >= 5"
               @keyup.enter="sendMessage"
               class="message-input"
             />
-            <el-button type="primary" @click="sendMessage" :disabled="!messageInput.trim()">发送</el-button>
+            <el-button 
+              type="primary" 
+              @click="sendMessage" 
+              :disabled="!messageInput.trim() || (!isFriend(selectedUser.id) && tempMsgCount >= 5)"
+            >发送</el-button>
           </div>
         </div>
       </div>
     </div>
 
     <el-drawer v-model="showUserList" direction="ltr" size="280px" :with-header="false">
-      <div class="drawer-user-list">
+      <div class="drawer-content">
         <div class="drawer-header">
-          <h3>💬 聊天室</h3>
-          <div class="online-count">在线 {{ onlineUsers.length }} 人</div>
+          <h3>💬 聊天</h3>
         </div>
-        <div class="drawer-users">
-          <div
-            v-for="user in onlineUsers"
-            :key="user.id"
-            class="drawer-user-item"
-            :class="{ active: selectedUserId === user.id }"
-            @click="selectUserAndClose(user)"
+
+        <div class="drawer-tabs">
+          <button 
+            v-for="tab in tabs" 
+            :key="tab.key" 
+            :class="['tab-btn', { active: activeTab === tab.key }]"
+            @click="activeTab = tab.key"
           >
-            <div class="drawer-user-avatar">
+            {{ tab.label }}
+            <span v-if="tab.count > 0" class="tab-badge">{{ tab.count }}</span>
+          </button>
+        </div>
+
+        <div v-if="activeTab === 'search'" class="search-section">
+          <el-input 
+            v-model="searchQuery" 
+            placeholder="搜索用户名或账号"
+            prefix-icon="Search"
+            @keyup.enter="doSearch"
+            class="search-input"
+          />
+          <el-button type="primary" @click="doSearch" style="width:100%;margin-top:8px;">搜索</el-button>
+          
+          <div v-if="searchResults.length > 0" class="search-results">
+            <div 
+              v-for="user in searchResults" 
+              :key="user.id" 
+              class="search-item"
+            >
               <el-avatar :size="48" :src="user.avatar ? `/api/uploads/${user.avatar}` : ''" icon="User">
                 {{ user.username.charAt(0) }}
               </el-avatar>
-              <span class="online-dot"></span>
-            </div>
-            <div class="drawer-user-info">
-              <div class="drawer-user-name">{{ user.username }}</div>
-              <div class="drawer-user-code">{{ user.account_code }}</div>
+              <div class="search-info">
+                <div class="search-name">{{ user.username }}</div>
+                <div class="search-code">{{ user.account_code }}</div>
+              </div>
+              <el-button 
+                v-if="user.id !== userStore.userInfo.id && !isFriend(user.id)" 
+                type="primary" 
+                size="small" 
+                @click="sendFriendRequest(user)"
+              >
+                添加好友
+              </el-button>
+              <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
+              <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
           </div>
-          <div v-if="onlineUsers.length === 0" class="drawer-empty">
+        </div>
+
+        <div v-else-if="activeTab === 'friends'" class="friends-list">
+          <div v-if="friends.length === 0" class="empty-friends">
             <div class="empty-icon">👥</div>
-            <p>暂无在线用户</p>
+            <p>暂无好友</p>
+            <p>去搜索添加好友吧</p>
+          </div>
+          <div 
+            v-for="friend in friends" 
+            :key="friend.id" 
+            class="friend-item"
+            :class="{ active: selectedUserId === friend.id }"
+            @click="selectUserAndClose(friend)"
+          >
+            <div class="friend-avatar">
+              <el-avatar :size="48" :src="friend.avatar ? `/api/uploads/${friend.avatar}` : ''" icon="User">
+                {{ friend.username.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="friend-info">
+              <div class="friend-name">{{ friend.username }}</div>
+              <div class="friend-code">{{ friend.account_code }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'pending'" class="pending-list">
+          <div v-if="pendingRequests.length === 0" class="empty-pending">
+            <div class="empty-icon">📭</div>
+            <p>暂无待处理请求</p>
+          </div>
+          <div 
+            v-for="req in pendingRequests" 
+            :key="req.id" 
+            class="pending-item"
+          >
+            <div class="pending-avatar">
+              <el-avatar :size="48" :src="req.avatar ? `/api/uploads/${req.avatar}` : ''" icon="User">
+                {{ req.username.charAt(0) }}
+              </el-avatar>
+            </div>
+            <div class="pending-info">
+              <div class="pending-name">{{ req.username }}</div>
+              <div class="pending-code">{{ req.account_code }}</div>
+            </div>
+            <div class="pending-actions">
+              <el-button type="success" size="small" @click="acceptFriendRequest(req)">接受</el-button>
+              <el-button type="danger" size="small" @click="rejectFriendRequest(req)">拒绝</el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -130,102 +295,204 @@
   </div>
 </template>
 
-<script setup>import { ref, onMounted, onUnmounted, watch } from 'vue';
+<script setup>
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '../stores/user';
 import axios from '../axios';
+
 const userStore = useUserStore();
 const router = useRouter();
-const onlineUsers = ref([]);
+
+const searchQuery = ref('');
+const searchResults = ref([]);
+const friends = ref([]);
+const pendingRequests = ref([]);
+const activeTab = ref('friends');
+
 const selectedUser = ref(null);
 const selectedUserId = ref(null);
 const messages = ref([]);
 const messageInput = ref('');
 const messagesContainer = ref(null);
 const showUserList = ref(false);
-const fetchOnlineUsers = async () => {
- try {
- const response = await axios.get('/api/users/online');
- if (response.data.code === 200) {
- onlineUsers.value = response.data.data.filter(u => u.id !== userStore.userInfo.id);
- }
- }
- catch (error) {
- console.error('获取在线用户失败:', error);
- }
+const tempMsgCount = ref(0);
+
+const tabs = computed(() => [
+  { key: 'friends', label: '好友', count: friends.value.length },
+  { key: 'pending', label: '待处理', count: pendingRequests.value.length },
+  { key: 'search', label: '搜索', count: 0 }
+]);
+
+const fetchFriends = async () => {
+  try {
+    const response = await axios.get('/api/friends/list');
+    if (response.data.code === 200) {
+      friends.value = response.data.data;
+    }
+  } catch (error) {
+    console.error('获取好友列表失败:', error);
+  }
 };
+
+const fetchPendingRequests = async () => {
+  try {
+    const response = await axios.get('/api/friends/pending');
+    if (response.data.code === 200) {
+      pendingRequests.value = response.data.data;
+    }
+  } catch (error) {
+    console.error('获取待处理请求失败:', error);
+  }
+};
+
+const doSearch = async () => {
+  if (!searchQuery.value.trim()) return;
+  
+  try {
+    const response = await axios.get(`/api/users/search?q=${encodeURIComponent(searchQuery.value)}`);
+    if (response.data.code === 200) {
+      searchResults.value = response.data.data;
+    }
+  } catch (error) {
+    console.error('搜索用户失败:', error);
+  }
+};
+
+const isFriend = (userId) => {
+  return friends.value.some(f => f.id === userId);
+};
+
+const sendFriendRequest = async (user) => {
+  try {
+    const response = await axios.post('/api/friends/request', {
+      user_id: user.id
+    });
+    if (response.data.code === 200) {
+      ElMessage.success('好友请求已发送');
+    } else {
+      ElMessage.error(response.data.msg || '发送失败');
+    }
+  } catch (error) {
+    ElMessage.error('发送失败');
+  }
+};
+
+const acceptFriendRequest = async (req) => {
+  try {
+    const response = await axios.post('/api/friends/accept', {
+      user_id: req.id
+    });
+    if (response.data.code === 200) {
+      ElMessage.success('已添加好友');
+      fetchFriends();
+      fetchPendingRequests();
+    } else {
+      ElMessage.error(response.data.msg || '操作失败');
+    }
+  } catch (error) {
+    ElMessage.error('操作失败');
+  }
+};
+
+const rejectFriendRequest = async (req) => {
+  try {
+    const response = await axios.post('/api/friends/reject', {
+      user_id: req.id
+    });
+    if (response.data.code === 200) {
+      ElMessage.success('已拒绝');
+      fetchPendingRequests();
+    } else {
+      ElMessage.error(response.data.msg || '操作失败');
+    }
+  } catch (error) {
+    ElMessage.error('操作失败');
+  }
+};
+
 const selectUser = (user) => {
- selectedUser.value = user;
- selectedUserId.value = user.id;
- messages.value = [];
- fetchChatHistory(user.id);
+  selectedUser.value = user;
+  selectedUserId.value = user.id;
+  messages.value = [];
+  tempMsgCount.value = 0;
+  fetchChatHistory(user.id);
 };
+
 const selectUserAndClose = (user) => {
- selectUser(user);
- showUserList.value = false;
+  selectUser(user);
+  showUserList.value = false;
 };
+
 const fetchChatHistory = async (otherId) => {
- try {
- const response = await axios.get(`/api/chat/history/${otherId}`);
- if (response.data.code === 200) {
- messages.value = response.data.data;
- scrollToBottom();
- }
- }
- catch (error) {
- console.error('获取聊天记录失败:', error);
- }
+  try {
+    const response = await axios.get(`/api/chat/history/${otherId}`);
+    if (response.data.code === 200) {
+      messages.value = response.data.data;
+      if (!isFriend(otherId)) {
+        const selfMsgCount = messages.value.filter(m => m.sender_id === userStore.userInfo.id).length;
+        tempMsgCount.value = selfMsgCount;
+      }
+      scrollToBottom();
+    }
+  } catch (error) {
+    console.error('获取聊天记录失败:', error);
+  }
 };
+
 const sendMessage = async () => {
- if (!messageInput.value.trim() || !selectedUser.value)
- return;
- const content = messageInput.value.trim();
- messageInput.value = '';
- try {
- const response = await axios.post('/api/chat/send', {
- receiver_id: selectedUser.value.id,
- content
- });
- if (response.data.code === 200) {
- messages.value.push({
- sender: userStore.userInfo.username,
- sender_id: userStore.userInfo.id,
- content,
- send_time: new Date().toLocaleString()
- });
- scrollToBottom();
- }
- else {
- ElMessage.error('发送失败');
- }
- }
- catch (error) {
- ElMessage.error('发送失败');
- }
+  if (!messageInput.value.trim() || !selectedUser.value) return;
+  
+  if (!isFriend(selectedUser.value.id) && tempMsgCount.value >= 5) {
+    ElMessage.warning('临时聊天已达上限，请添加好友');
+    return;
+  }
+
+  const content = messageInput.value.trim();
+  messageInput.value = '';
+
+  try {
+    const response = await axios.post('/api/chat/send', {
+      receiver_id: selectedUser.value.id,
+      content
+    });
+    if (response.data.code === 200) {
+      messages.value.push({
+        sender: userStore.userInfo.username,
+        sender_id: userStore.userInfo.id,
+        content,
+        send_time: new Date().toLocaleString()
+      });
+      if (!isFriend(selectedUser.value.id)) {
+        tempMsgCount.value++;
+      }
+      scrollToBottom();
+    } else {
+      ElMessage.error(response.data.msg || '发送失败');
+    }
+  } catch (error) {
+    ElMessage.error('发送失败');
+  }
 };
+
 const scrollToBottom = () => {
- setTimeout(() => {
- if (messagesContainer.value) {
- messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
- }
- }, 100);
+  setTimeout(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  }, 100);
 };
+
 const clearHistory = () => {
- messages.value = [];
+  messages.value = [];
 };
-watch(() => userStore.isLoggedIn, (val) => {
- if (val) {
- fetchOnlineUsers();
- }
-});
+
 onMounted(() => {
- if (userStore.isLoggedIn) {
- fetchOnlineUsers();
- }
- setInterval(fetchOnlineUsers, 15000);
-});
-onUnmounted(() => {
+  if (userStore.isLoggedIn) {
+    fetchFriends();
+    fetchPendingRequests();
+  }
 });
 </script>
 
@@ -276,7 +543,7 @@ onUnmounted(() => {
 }
 
 .chat-sidebar {
-  width: 260px;
+  width: 280px;
   background: #f7f7f7;
   border-right: 1px solid var(--tieba-border);
   display: flex;
@@ -295,22 +562,126 @@ onUnmounted(() => {
 
 .chat-sidebar-header h3 {
   font-size: 16px;
-  margin: 0 0 8px 0;
+  margin: 0;
   color: var(--tieba-blue);
 }
 
-.online-count {
-  font-size: 12px;
+.chat-tabs {
+  display: flex;
+  padding: 8px;
+  gap: 4px;
+  border-bottom: 1px solid var(--tieba-border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
   color: #666;
 }
 
-.chat-users-list {
+.dark .tab-btn {
+  color: #ccc;
+}
+
+.tab-btn:hover {
+  background: rgba(72, 121, 189, 0.1);
+}
+
+.tab-btn.active {
+  background: rgba(72, 121, 189, 0.2);
+  color: var(--tieba-blue);
+}
+
+.tab-badge {
+  background: #f56c6c;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.search-section {
+  padding: 12px;
+}
+
+.search-input {
+  margin-bottom: 8px;
+}
+
+.search-results {
+  margin-top: 12px;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.dark .search-item {
+  background: #333;
+}
+
+.search-info {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.search-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.dark .search-name {
+  color: #fff;
+}
+
+.search-code {
+  font-size: 12px;
+  color: #999;
+}
+
+.friend-tag, .self-tag {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dark .friend-tag {
+  background: #1b5e20;
+  color: #81c784;
+}
+
+.self-tag {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.dark .self-tag {
+  background: #0d47a1;
+  color: #90caf9;
+}
+
+.friends-list, .pending-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
 }
 
-.user-item {
+.friend-item {
   display: flex;
   align-items: center;
   padding: 10px;
@@ -320,51 +691,96 @@ onUnmounted(() => {
   transition: background 0.2s;
 }
 
-.user-item:hover {
+.friend-item:hover {
   background: rgba(72, 121, 189, 0.1);
 }
 
-.user-item.active {
+.friend-item.active {
   background: rgba(72, 121, 189, 0.2);
 }
 
-.user-avatar {
-  position: relative;
+.friend-avatar {
   margin-right: 12px;
 }
 
-.online-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  background: #52c41a;
-  border-radius: 50%;
-  border: 2px solid #fff;
-}
-
-.dark .online-dot {
-  border-color: #222;
-}
-
-.user-info {
+.friend-info {
   flex: 1;
 }
 
-.user-name {
+.friend-name {
   font-size: 14px;
   font-weight: 500;
   color: #333;
 }
 
-.dark .user-name {
+.dark .friend-name {
   color: #fff;
 }
 
-.user-code {
+.friend-code {
   font-size: 12px;
   color: #999;
+}
+
+.empty-friends, .empty-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.empty-friends .empty-icon, .empty-pending .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-friends p, .empty-pending p {
+  color: #999;
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.pending-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.dark .pending-item {
+  background: #333;
+}
+
+.pending-avatar {
+  margin-right: 12px;
+}
+
+.pending-info {
+  flex: 1;
+}
+
+.pending-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.dark .pending-name {
+  color: #fff;
+}
+
+.pending-code {
+  font-size: 12px;
+  color: #999;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 4px;
 }
 
 .chat-area {
@@ -439,6 +855,19 @@ onUnmounted(() => {
 .chat-room-code {
   font-size: 12px;
   color: #999;
+}
+
+.chat-room-status {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.status-warning {
+  color: #e6a23c;
+}
+
+.status-success {
+  color: #67c23a;
 }
 
 .chat-room-actions {
@@ -551,7 +980,7 @@ onUnmounted(() => {
   flex: 1;
 }
 
-.drawer-user-list {
+.drawer-content {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -564,88 +993,29 @@ onUnmounted(() => {
 
 .drawer-header h3 {
   font-size: 18px;
-  margin: 0 0 8px 0;
+  margin: 0;
   color: var(--tieba-blue);
 }
 
-.drawer-users {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.drawer-user-item {
+.drawer-tabs {
   display: flex;
-  align-items: center;
-  padding: 16px;
-  cursor: pointer;
-  border-radius: 12px;
-  margin-bottom: 8px;
-  transition: background 0.2s;
-}
-
-.drawer-user-item:hover {
-  background: rgba(72, 121, 189, 0.1);
-}
-
-.drawer-user-item.active {
-  background: rgba(72, 121, 189, 0.2);
-}
-
-.drawer-user-avatar {
-  position: relative;
-  margin-right: 16px;
-}
-
-.drawer-user-info {
-  flex: 1;
-}
-
-.drawer-user-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-.dark .drawer-user-name {
-  color: #fff;
-}
-
-.drawer-user-code {
-  font-size: 13px;
-  color: #999;
-}
-
-.drawer-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  text-align: center;
-}
-
-.drawer-empty .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.drawer-empty p {
-  color: #999;
-  font-size: 14px;
+  padding: 8px;
+  gap: 4px;
+  border-bottom: 1px solid var(--tieba-border);
 }
 
 @media (max-width: 768px) {
   .mobile-user-list-btn {
     display: block;
     position: fixed;
-    top: 60px;
-    left: 12px;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 100;
     background: rgba(72, 121, 189, 0.95);
     color: #fff;
-    padding: 10px 16px;
-    border-radius: 20px;
+    padding: 12px 24px;
+    border-radius: 24px;
     font-size: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     cursor: pointer;

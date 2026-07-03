@@ -121,3 +121,17 @@ class Announcement(db.Model):
     is_pinned = db.Column(db.Integer, default=0)  # 是否置顶
     create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     update_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+# 好友关系表
+class Friendship(db.Model):
+    __tablename__ = 'friendships'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
+    friend_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
+    status = db.Column(db.Integer, default=0)  # 0=待确认，1=已成为好友，2=已拒绝
+    create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('friendships', lazy=True, cascade='all, delete-orphan'))
+    friend = db.relationship('User', foreign_keys=[friend_id], backref=db.backref('friend_of', lazy=True, cascade='all, delete-orphan'))
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'friend_id', name='uq_friendship'),)

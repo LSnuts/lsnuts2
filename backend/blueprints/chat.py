@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
-from models import db, Message, User
+from models import db, Message, User, Friendship
 
 chat_bp = Blueprint('chat', __name__)
 logger = logging.getLogger(__name__)
@@ -141,3 +141,172 @@ def send_chat_message():
         'content': content,
         'send_time': msg.send_time.strftime('%Y-%m-%d %H:%M:%S')
     }})
+
+@chat_bp.route('/api/users/search')
+@login_required
+def search_users():
+    query = request.args.get('q', '')
+    logger.info(f"[搜索用户] 用户 {current_user.id} 搜索: {query}")
+    
+    if not query:
+        return jsonify({'code': 200, 'data': []})
+    
+    users = User.query.filter(
+        (User.username.like(f'%{query}%')) | (User.account_code.like(f'%{query}%'))
+    ).all()
+    
+    data = []
+    for user in users:
+        data.append({
+            'id': user.id,
+            'username': user.username,
+            'account_code': user.account_code,
+            'avatar': user.avatar
+        })
+    
+    logger.info(f"[搜索用户] 返回 {len(data)} 个结果")
+    return jsonify({'code': 200, 'data': data})
+
+@chat_bp.route('/api/friends/request', methods=['POST'])
+@login_required
+def send_friend_request():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'code': 400, 'msg': '缺少参数'}), 400
+    
+    if user_id == current_user.id:
+        return jsonify({'code': 400, 'msg': '不能添加自己'}), 400
+    
+    receiver = User.query.get(user_id)
+    if not receiver:
+        return jsonify({'code': 404, 'msg': '用户不存在'}), 404
+    
+    existing = Friendship.query.filter(
+        ((Friendship.user_id == current_user.id) & (Friendship.friend_id == user_id)) |
+        ((Friendship.user_id == user_id) & (Friendship.friend_id == current_user.id))
+    ).first()
+    
+    if existing:
+        if existing.status == 1:
+            return jsonify({'code': 400, 'msg': '已经是好友'}), 400
+        elif existing.status == 0:
+            return jsonify({'code': 400, 'msg': '请求已发送'}), 400
+        elif existing.status == 2:
+            existing.status = 0
+            existing.create_time = datetime.now(timezone.utc)
+            db.session.commit()
+            logger.info(f"[好友请求] 用户 {current_user.id} 重新发送请求给用户 {user_id}")
+            return jsonify({'code': 200, 'msg': '好友请求已发送'})
+    
+    friendship = Friendship(user_id=current_user.id, friend_id=user_id, status=0)
+    db.session.add(friendship)
+    db.session.commit()
+    
+    logger.info(f"[好友请求] 用户 {current_user.id} 发送请求给用户 {user_id}")
+    return jsonify({'code': 200, 'msg': '好友请求已发送'})
+
+@chat_bp.route('/api/friends/list')
+@login_required
+def friend_list():
+    logger.info(f"[好友列表] 用户 {current_user.id} 请求好友列表")
+    
+    friends = Friendship.query.filter(
+        ((Friendship.user_id == current_user.id) | (Friendship.friend_id == current_user.id)) &
+        (Friendship.status == 1)
+    ).all()
+    
+    friend_ids = []
+    for f in friends:
+        if f.user_id == current_user.id:
+            friend_ids.append(f.friend_id)
+        else:
+            friend_ids.append(f.user_id)
+    
+    users = User.query.filter(User.id.in_(friend_ids)).all()
+    
+    data = []
+    for user in users:
+        data.append({
+            'id': user.id,
+            'username': user.username,
+            'account_code': user.account_code,
+            'avatar': user.avatar
+        })
+    
+    logger.info(f"[好友列表] 返回 {len(data)} 个好友")
+    return jsonify({'code': 200, 'data': data})
+
+@chat_bp.route('/api/friends/pending')
+@login_required
+def pending_requests():
+    logger.info(f"[待处理请求] 用户 {current_user.id} 请求待处理列表")
+    
+    pending = Friendship.query.filter(
+        Friendship.friend_id == current_user.id,
+        Friendship.status == 0
+    ).all()
+    
+    user_ids = [p.user_id for p in pending]
+    users = User.query.filter(User.id.in_(user_ids)).all()
+    
+    data = []
+    for user in users:
+        data.append({
+            'id': user.id,
+            'username': user.username,
+            'account_code': user.account_code,
+            'avatar': user.avatar
+        })
+    
+    logger.info(f"[待处理请求] 返回 {len(data)} 个待处理请求")
+    return jsonify({'code': 200, 'data': data})
+
+@chat_bp.route('/api/friends/accept', methods=['POST'])
+@login_required
+def accept_friend_request():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'code': 400, 'msg': '缺少参数'}), 400
+    
+    friendship = Friendship.query.filter(
+        Friendship.user_id == user_id,
+        Friendship.friend_id == current_user.id,
+        Friendship.status == 0
+    ).first()
+    
+    if not friendship:
+        return jsonify({'code': 404, 'msg': '请求不存在'}), 404
+    
+    friendship.status = 1
+    db.session.commit()
+    
+    logger.info(f"[好友接受] 用户 {current_user.id} 接受用户 {user_id} 的好友请求")
+    return jsonify({'code': 200, 'msg': '已添加好友'})
+
+@chat_bp.route('/api/friends/reject', methods=['POST'])
+@login_required
+def reject_friend_request():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'code': 400, 'msg': '缺少参数'}), 400
+    
+    friendship = Friendship.query.filter(
+        Friendship.user_id == user_id,
+        Friendship.friend_id == current_user.id,
+        Friendship.status == 0
+    ).first()
+    
+    if not friendship:
+        return jsonify({'code': 404, 'msg': '请求不存在'}), 404
+    
+    friendship.status = 2
+    db.session.commit()
+    
+    logger.info(f"[好友拒绝] 用户 {current_user.id} 拒绝用户 {user_id} 的好友请求")
+    return jsonify({'code': 200, 'msg': '已拒绝'})
