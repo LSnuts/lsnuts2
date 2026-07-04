@@ -54,34 +54,52 @@ def notification_count():
 @chat_bp.route('/api/notifications')
 @login_required
 def notification_list():
-    from models import Notification, Post, Comment, Message
+    from models import Notification, Post, Comment
     
-    notifs = db.session.query(Notification, Post.title, Comment.content, Comment.user_id.label('comment_user_id'), Message.content.label('message_content'), User.username, User.avatar).filter(Notification.user_id == current_user.id).outerjoin(Post, Notification.post_id == Post.id).outerjoin(Comment, Notification.comment_id == Comment.id).outerjoin(Message, Notification.message_id == Message.id).outerjoin(User, db.or_(Comment.user_id == User.id, Notification.sender_id == User.id)).order_by(Notification.create_time.desc()).limit(50).all()
+    try:
+        notifs = Notification.query.filter(Notification.user_id == current_user.id).order_by(Notification.create_time.desc()).limit(50).all()
+    except Exception as e:
+        logger.error(f"查询通知失败: {e}")
+        return jsonify({'code': 200, 'data': []})
     
     data = []
-    for n, post_title, comment_content, comment_user_id, message_content, username, avatar in notifs:
+    for n in notifs:
+        username = '未知用户'
+        avatar = None
+        post_title = None
+        comment_content = None
+        message_content = None
+        
+        if n.comment_id:
+            comment = Comment.query.get(n.comment_id)
+            if comment:
+                comment_user = User.query.get(comment.user_id)
+                if comment_user:
+                    username = comment_user.username
+                    avatar = comment_user.avatar
+                comment_content = comment.content[:100]
+        
+        if n.post_id:
+            post = Post.query.get(n.post_id)
+            if post:
+                post_title = post.title
+        
         item = {
             'id': n.id,
             'post_id': n.post_id,
             'comment_id': n.comment_id,
-            'message_id': n.message_id,
-            'sender_id': n.sender_id,
+            'message_id': None,
+            'sender_id': None,
             'type': n.type or 'comment_reply',
             'is_read': n.is_read,
             'create_time': n.create_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'username': username or '未知用户',
-            'avatar': avatar
+            'username': username,
+            'avatar': avatar,
+            'post_title': post_title or '(帖子已删除)',
+            'post_deleted': post_title is None,
+            'comment_content': comment_content,
+            'message_content': message_content
         }
-        
-        if n.type == 'chat_message':
-            item['message_content'] = (message_content or '')[:50]
-            item['post_title'] = None
-            item['comment_content'] = None
-        else:
-            item['post_title'] = post_title or '(帖子已删除)'
-            item['post_deleted'] = post_title is None
-            item['comment_content'] = (comment_content or '')[:100]
-            item['message_content'] = None
         
         data.append(item)
     
@@ -147,15 +165,6 @@ def send_chat_message():
     
     msg = Message(sender_id=current_user.id, receiver_id=receiver_id, content=content)
     db.session.add(msg)
-    
-    notification = Notification(
-        user_id=receiver_id,
-        sender_id=current_user.id,
-        message_id=msg.id,
-        type='chat_message'
-    )
-    db.session.add(notification)
-    
     db.session.commit()
     
     logger.info(f"[私聊消息] 用户 {current_user.id} -> 用户 {receiver_id}: {content[:50]}")

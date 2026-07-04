@@ -14,6 +14,10 @@ export function tagLabel(tag) {
 }
 
 export function getAvatarUrl(avatarPath) {
-  if (avatarPath) return API_BASE + avatarPath
+  if (avatarPath) {
+    if (avatarPath.startsWith('http')) return avatarPath
+    if (avatarPath.startsWith('/uploads/')) return API_BASE + avatarPath
+    return API_BASE + '/uploads/' + avatarPath
+  }
   return ''
 }

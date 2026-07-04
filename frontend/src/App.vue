@@ -52,6 +52,12 @@
     <div class="mobile-menu-btn" @click="drawerVisible = true">
       ☰
     </div>
+    
+    <!-- ========== 移动端通知铃铛 ========== -->
+    <div class="mobile-notif-btn" @click="showNotifications" v-if="userStore.isLoggedIn">
+      <span>🔔</span>
+      <span v-if="notifStore.unreadCount > 0" class="mobile-badge">{{ notifStore.unreadCount }}</span>
+    </div>
 
     <!-- 移动端侧滑抽屉 -->
     <el-drawer v-model="drawerVisible" direction="ltr" size="220px" :with-header="false">
@@ -373,6 +379,47 @@ onUnmounted(() => {
 }
 
 /* ============================================
+   移动端通知按钮
+   ============================================ */
+.mobile-notif-btn {
+  display: none;
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  background: rgba(72, 121, 189, 0.95);
+  color: #fff;
+  font-size: 20px;
+  text-align: center;
+  line-height: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 1000;
+  cursor: pointer;
+}
+
+.mobile-notif-btn:hover {
+  background: rgba(72, 121, 189, 1);
+}
+
+.mobile-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  line-height: 18px;
+  border-radius: 9px;
+  padding: 0 4px;
+}
+
+/* ============================================
    主内容区
    ============================================ */
 .tieba-main {
@@ -437,6 +484,9 @@ onUnmounted(() => {
     overflow: hidden !important;
   }
   .mobile-menu-btn {
+    display: block !important;
+  }
+  .mobile-notif-btn {
     display: block !important;
   }
   .tieba-main {
