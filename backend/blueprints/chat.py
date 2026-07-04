@@ -22,7 +22,7 @@ def chat_history(other_id):
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     
-    query = db.session.query(Message, User.username).join(User, Message.sender_id == User.id).filter(
+    query = db.session.query(Message, User.username, User.avatar).join(User, Message.sender_id == User.id).filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == other_id)) |
         ((Message.sender_id == other_id) & (Message.receiver_id == current_user.id))
     ).order_by(Message.send_time.asc())
@@ -32,10 +32,11 @@ def chat_history(other_id):
     messages = query.offset(offset).limit(limit).all()
     
     data = []
-    for msg, sender_name in messages:
+    for msg, sender_name, sender_avatar in messages:
         data.append({
             'sender_id': msg.sender_id,
             'sender': sender_name,
+            'sender_avatar': sender_avatar,
             'content': msg.content,
             'send_time': msg.send_time.strftime('%Y-%m-%d %H:%M:%S')
         })
@@ -53,22 +54,37 @@ def notification_count():
 @chat_bp.route('/api/notifications')
 @login_required
 def notification_list():
-    from models import Notification, Post, Comment
-    notifs = db.session.query(Notification, Post.title, Comment.content, User.username).outerjoin(Post, Notification.post_id == Post.id).join(Comment, Notification.comment_id == Comment.id).join(User, Comment.user_id == User.id).filter(Notification.user_id == current_user.id).order_by(Notification.create_time.desc()).limit(50).all()
+    from models import Notification, Post, Comment, Message
+    
+    notifs = db.session.query(Notification, Post.title, Comment.content, Comment.user_id.label('comment_user_id'), Message.content.label('message_content'), User.username, User.avatar).filter(Notification.user_id == current_user.id).outerjoin(Post, Notification.post_id == Post.id).outerjoin(Comment, Notification.comment_id == Comment.id).outerjoin(Message, Notification.message_id == Message.id).outerjoin(User, db.or_(Comment.user_id == User.id, Notification.sender_id == User.id)).order_by(Notification.create_time.desc()).limit(50).all()
+    
     data = []
-    for n, post_title, comment_content, replier in notifs:
-        data.append({
+    for n, post_title, comment_content, comment_user_id, message_content, username, avatar in notifs:
+        item = {
             'id': n.id,
             'post_id': n.post_id,
             'comment_id': n.comment_id,
-            'post_title': post_title or '(帖子已删除)',
-            'post_deleted': post_title is None,
-            'comment_content': (comment_content or '')[:100],
-            'replier': replier,
+            'message_id': n.message_id,
+            'sender_id': n.sender_id,
             'type': n.type or 'comment_reply',
             'is_read': n.is_read,
-            'create_time': n.create_time.strftime('%Y-%m-%d %H:%M:%S')
-        })
+            'create_time': n.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'username': username or '未知用户',
+            'avatar': avatar
+        }
+        
+        if n.type == 'chat_message':
+            item['message_content'] = (message_content or '')[:50]
+            item['post_title'] = None
+            item['comment_content'] = None
+        else:
+            item['post_title'] = post_title or '(帖子已删除)'
+            item['post_deleted'] = post_title is None
+            item['comment_content'] = (comment_content or '')[:100]
+            item['message_content'] = None
+        
+        data.append(item)
+    
     return jsonify({'code': 200, 'data': data})
 
 @chat_bp.route('/api/notifications/read', methods=['POST'])
@@ -131,6 +147,15 @@ def send_chat_message():
     
     msg = Message(sender_id=current_user.id, receiver_id=receiver_id, content=content)
     db.session.add(msg)
+    
+    notification = Notification(
+        user_id=receiver_id,
+        sender_id=current_user.id,
+        message_id=msg.id,
+        type='chat_message'
+    )
+    db.session.add(notification)
+    
     db.session.commit()
     
     logger.info(f"[私聊消息] 用户 {current_user.id} -> 用户 {receiver_id}: {content[:50]}")

@@ -45,7 +45,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="40" :src="user.avatar ? `https://api.118201820.xyz/api/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="user.avatar ? `https://api.118201820.xyz/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -61,7 +61,7 @@
                 添加好友
               </el-button>
               <div v-else-if="isPendingRequest(user.id)" class="pending-tag">等待同意</div>
-              <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
+              <div v-else-if="isFriend(user.id)" class="friend-tag">好友</div>
               <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
           </div>
@@ -81,7 +81,7 @@
             @click="selectUser(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="40" :src="friend.avatar ? `https://api.118201820.xyz/api/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="friend.avatar ? `https://api.118201820.xyz/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -103,7 +103,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="40" :src="req.avatar ? `https://api.118201820.xyz/api/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="req.avatar ? `https://api.118201820.xyz/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -128,7 +128,7 @@
 
         <div v-else class="chat-room">
           <div class="chat-room-header">
-            <el-avatar :size="40" :src="selectedUser.avatar ? `/api/uploads/${selectedUser.avatar}` : ''" icon="User">
+            <el-avatar :size="40" :src="selectedUser.avatar ? `https://api.118201820.xyz/uploads/${selectedUser.avatar}` : ''" :icon="!selectedUser.avatar ? 'User' : null">
               {{ selectedUser.username.charAt(0) }}
             </el-avatar>
             <div class="chat-room-info">
@@ -138,7 +138,7 @@
                 <span class="status-warning">临时聊天（{{ tempMsgCount }}/5）</span>
               </div>
               <div v-else class="chat-room-status">
-                <span class="status-success">已好友</span>
+                <span class="status-success">好友</span>
               </div>
             </div>
             <div class="chat-room-actions">
@@ -154,7 +154,7 @@
               :class="{ 'self': msg.sender_id === userStore.userInfo.id }"
             >
               <div class="message-avatar">
-                <el-avatar :size="32" icon="User">
+                <el-avatar :size="32" :src="msg.sender_avatar ? `https://api.118201820.xyz/uploads/${msg.sender_avatar}` : ''" :icon="!msg.sender_avatar ? 'User' : null">
                   {{ msg.sender.charAt(0) }}
                 </el-avatar>
               </div>
@@ -220,7 +220,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="48" :src="user.avatar ? `https://api.118201820.xyz/api/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="user.avatar ? `https://api.118201820.xyz/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -236,7 +236,7 @@
                 添加好友
               </el-button>
               <div v-else-if="isPendingRequest(user.id)" class="pending-tag">等待同意</div>
-              <div v-else-if="isFriend(user.id)" class="friend-tag">已好友</div>
+              <div v-else-if="isFriend(user.id)" class="friend-tag">好友</div>
               <div v-else-if="user.id === userStore.userInfo.id" class="self-tag">自己</div>
             </div>
           </div>
@@ -256,7 +256,7 @@
             @click="selectUserAndClose(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="48" :src="friend.avatar ? `https://api.118201820.xyz/api/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="friend.avatar ? `https://api.118201820.xyz/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -278,7 +278,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="48" :src="req.avatar ? `https://api.118201820.xyz/api/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="req.avatar ? `https://api.118201820.xyz/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -323,7 +323,7 @@ const showUserList = ref(false);
 const tempMsgCount = ref(0);
 
 const tabs = computed(() => [
-  { key: 'friends', label: '好友', count: friends.value.length },
+  { key: 'friends', label: `好友（${friends.value.length}）`, count: 0 },
   { key: 'pending', label: '待处理', count: pendingRequests.value.length },
   { key: 'search', label: '搜索', count: 0 }
 ]);

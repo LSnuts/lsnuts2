@@ -77,14 +77,16 @@ class Comment(db.Model):
     user = db.relationship('User', backref=db.backref('comments', lazy=True, cascade='all, delete-orphan'))  # 评论者关联
     replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]), lazy=True, cascade='all, delete-orphan')  # 子回复列表
 
-# 通知表 - 存储用户收到的评论回复通知
+# 通知表 - 存储用户收到的评论回复通知和聊天消息通知
 class Notification(db.Model):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 接收通知的用户
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'))  # 相关帖子ID
     comment_id = db.Column(db.Integer, db.ForeignKey('comments.id', ondelete='CASCADE'))  # 相关评论ID
-    type = db.Column(db.String(20), default='comment_reply')  # post_reply / comment_reply / mention
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 发送者ID（用于聊天消息）
+    message_id = db.Column(db.Integer, db.ForeignKey('messages.id', ondelete='CASCADE'))  # 相关消息ID（用于聊天消息）
+    type = db.Column(db.String(20), default='comment_reply')  # post_reply / comment_reply / mention / chat_message
     is_read = db.Column(db.Integer, default=0)  # 是否已读：0=未读，1=已读
     create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 

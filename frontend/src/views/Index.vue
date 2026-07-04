@@ -32,6 +32,20 @@
       </div>
     </div>
 
+    <!-- 公告区 -->
+    <div v-if="announcements.length > 0" class="home-section">
+      <div class="section-header">
+        <span class="section-title">📢 公告</span>
+      </div>
+      <div class="announce-list">
+        <div v-for="a in announcements" :key="a.id" class="announce-item">
+          <span class="announce-dot">●</span>
+          <span class="announce-text">{{ a.content }}</span>
+          <span class="announce-time">{{ a.create_time }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 最新帖子 -->
     <div class="home-section">
       <div class="section-header">
@@ -56,20 +70,6 @@
         </div>
         <div v-if="recentPosts.length === 0" class="recent-empty">
           暂无帖子，去发一个吧！
-        </div>
-      </div>
-    </div>
-
-    <!-- 公告区 -->
-    <div v-if="announcements.length > 0" class="home-section">
-      <div class="section-header">
-        <span class="section-title">📢 公告</span>
-      </div>
-      <div class="announce-list">
-        <div v-for="a in announcements" :key="a.id" class="announce-item">
-          <span class="announce-dot">●</span>
-          <span class="announce-text">{{ a.content }}</span>
-          <span class="announce-time">{{ a.create_time }}</span>
         </div>
       </div>
     </div>

@@ -77,41 +77,61 @@
     </el-drawer>
 
     <!-- 通知弹窗 -->
-    <el-dialog v-model="notifVisible" title="📬 消息通知" width="90% max-w-[420px]" @open="onNotifOpen">
+    <el-dialog v-model="notifVisible" title="📬 消息通知" width="90% max-w-[460px]" @open="onNotifOpen">
       <div v-if="notifStore.notifications.length === 0" class="text-center text-gray-400 py-6">
         暂无通知
       </div>
-      <div v-else class="space-y-3">
+      <div v-else class="notif-list">
         <div
           v-for="n in notifStore.notifications"
           :key="n.id"
-          class="p-3 rounded border relative"
-          :class="n.is_read
-            ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-            : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'"
+          class="notif-item"
+          :class="{ 'unread': n.is_read === 0 }"
         >
-          <div class="text-sm font-medium text-gray-800 dark:text-gray-200">
-            {{ n.replier }}
-            <span class="text-blue-600 dark:text-blue-400">
-              {{ n.type === 'post_reply' ? '回复了你的帖子'
-                : n.type === 'mention' ? '在评论中@了你'
-                : '回复了你的评论' }}
-            </span>
+          <div class="notif-avatar">
+            <el-avatar :size="36" :src="n.avatar ? `https://api.118201820.xyz/uploads/${n.avatar}` : ''" :icon="!n.avatar ? 'User' : null">
+              {{ n.username?.charAt(0) }}
+            </el-avatar>
           </div>
-          <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-            {{ n.comment_content }}
-          </div>
-          <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400 dark:text-gray-500">
-              {{ n.post_title }} · {{ n.create_time }}
-            </span>
-            <div class="flex gap-1">
-              <el-button v-if="!n.post_deleted" size="small" type="primary" @click="goToPost(n)">
-                去看看 →
-              </el-button>
-              <el-button v-else size="small" disabled>帖子已删除</el-button>
-              <el-button size="small" type="danger" text @click="deleteNotif(n.id)">🗑</el-button>
+          <div class="notif-content">
+            <div class="notif-header">
+              <span class="notif-user">{{ n.username }}</span>
+              <span class="notif-time">{{ n.create_time }}</span>
             </div>
+            <div class="notif-action">
+              <span v-if="n.type === 'chat_message'" class="action-chat">发来了消息</span>
+              <span v-else-if="n.type === 'post_reply'" class="action-reply">回复了你的帖子</span>
+              <span v-else-if="n.type === 'mention'" class="action-mention">在评论中@了你</span>
+              <span v-else class="action-comment">回复了你的评论</span>
+            </div>
+            <div class="notif-preview">
+              <span v-if="n.type === 'chat_message'" class="preview-text">{{ n.message_content }}</span>
+              <template v-else>
+                <span class="preview-title">{{ n.post_title }}</span>
+                <span v-if="n.comment_content" class="preview-dot">·</span>
+                <span v-if="n.comment_content" class="preview-text">{{ n.comment_content }}</span>
+              </template>
+            </div>
+          </div>
+          <div class="notif-actions">
+            <el-button 
+              v-if="n.type === 'chat_message'" 
+              size="small" 
+              type="primary" 
+              @click="goToChat(n)"
+            >
+              去聊天
+            </el-button>
+            <el-button 
+              v-else-if="!n.post_deleted" 
+              size="small" 
+              type="primary" 
+              @click="goToPost(n)"
+            >
+              去看看
+            </el-button>
+            <el-button v-else size="small" disabled>帖子已删</el-button>
+            <el-button size="small" type="danger" text @click="deleteNotif(n.id)">🗑</el-button>
           </div>
         </div>
       </div>
@@ -201,6 +221,12 @@ const goToPost = (n) => {
   notifVisible.value = false
   const anchor = n.comment_id ? `#comment-${n.comment_id}` : ''
   router.push(`/forum/detail/${n.post_id}${anchor}`)
+}
+
+const goToChat = (n) => {
+  markAllRead()
+  notifVisible.value = false
+  router.push('/chat')
 }
 
 const deleteNotif = async (id) => {
@@ -481,4 +507,155 @@ onUnmounted(() => {
 
 .el-table { font-size: 12px; }
 @media (max-width: 768px) { .el-table { font-size: 11px; } }
+
+/* ============================================
+   通知弹窗样式
+   ============================================ */
+.notif-list {
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  transition: all 0.2s;
+}
+
+.dark .notif-item {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+.notif-item.unread {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.dark .notif-item.unread {
+  background: #1e3a5f;
+  border-color: #2c5a8a;
+}
+
+.notif-item:last-child {
+  margin-bottom: 0;
+}
+
+.notif-avatar {
+  flex-shrink: 0;
+}
+
+.notif-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.notif-user {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.dark .notif-user {
+  color: #fff;
+}
+
+.notif-time {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.dark .notif-time {
+  color: #666;
+}
+
+.notif-action {
+  margin-bottom: 6px;
+}
+
+.action-chat {
+  font-size: 13px;
+  color: #2563eb;
+}
+
+.action-reply {
+  font-size: 13px;
+  color: #16a34a;
+}
+
+.action-mention {
+  font-size: 13px;
+  color: #f59e0b;
+}
+
+.action-comment {
+  font-size: 13px;
+  color: #8b5cf6;
+}
+
+.notif-preview {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.preview-title {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .preview-title {
+  color: #aaa;
+}
+
+.preview-dot {
+  font-size: 12px;
+  color: #999;
+}
+
+.preview-text {
+  font-size: 12px;
+  color: #999;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .preview-text {
+  color: #666;
+}
+
+.notif-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.notif-actions .el-button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
 </style>
