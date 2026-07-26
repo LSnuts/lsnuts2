@@ -23,6 +23,7 @@ from models import db, User, File, Message, Post, Comment, Notification, PostLik
 from utils import hash_password, verify_password
 from utils.secure_logger import info as secure_info, warning as secure_warning
 from werkzeug.utils import secure_filename
+from flask import send_from_directory
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -125,6 +126,18 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(chat_bp)
 
 
+
+frontend_dist = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+
+@app.route('/')
+@app.route('/<path:path>')
+def serve_frontend(path='index.html'):
+    if path.startswith('api/') or path.startswith('uploads/'):
+        return jsonify({'code': 404, 'msg': 'Not Found'}), 404
+    full_path = os.path.join(frontend_dist, path)
+    if path != 'index.html' and os.path.exists(full_path):
+        return send_from_directory(frontend_dist, path)
+    return send_from_directory(frontend_dist, 'index.html')
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):

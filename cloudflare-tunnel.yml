@@ -4,4 +4,6 @@ credentials-file: C:\Users\ASUS\.cloudflared\4fd39d69-aaff-41f4-b7df-51e709c5ddc
 ingress:
   - hostname: api.118201820.xyz
     service: http://localhost:5000
+  - hostname: 118201820.xyz
+    service: http://localhost:5000
   - service: http_status:404
