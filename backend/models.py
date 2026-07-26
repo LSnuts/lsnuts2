@@ -59,6 +59,7 @@ class Post(db.Model):
     image = db.Column(db.String(255))  # 帖子配图存储路径
     attachment_name = db.Column(db.String(255))  # 附件原始文件名
     attachment_path = db.Column(db.String(255))  # 附件存储路径
+    is_hidden = db.Column(db.Integer, default=0)  # 是否隐藏：0=可见，1=隐藏
     
     user = db.relationship('User', backref=db.backref('posts', lazy=True, cascade='all, delete-orphan'))  # 发帖者关联
     comments = db.relationship('Comment', backref='post', lazy=True, cascade='all, delete-orphan')  # 帖子的评论列表

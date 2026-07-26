@@ -47,6 +47,8 @@ def forum_list():
      .outerjoin(like_count_subq, Post.id == like_count_subq.c.post_id)\
      .outerjoin(user_post_count_subq, Post.user_id == user_post_count_subq.c.user_id)
     
+    query = query.filter(Post.is_hidden == 0)
+    
     if search:
         query = query.filter(db.or_(Post.title.contains(search), Post.content.contains(search)))
     
@@ -137,6 +139,9 @@ def forum_detail(post_id):
         return jsonify({'code':400, 'msg':'帖子不存在'})
     post, post_username, post_is_admin, post_avatar, user_created = post_data
     
+    if post.is_hidden == 1 and (not current_user.is_authenticated or not current_user.is_admin):
+        return jsonify({'code':400, 'msg':'帖子不存在'})
+    
     user_post_count = Post.query.filter_by(user_id=post.user_id).count()
     
     like_count = PostLike.query.filter_by(post_id=post_id).count()
@@ -185,6 +190,12 @@ def forum_comment(post_id):
     logger.info(f"[论坛评论] 收到请求 - 用户: {current_user.username} (ID:{current_user.id}), 帖子ID: {post_id}")
     data = request.json
     
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({'code':400, 'msg':'帖子不存在'})
+    if post.is_hidden == 1 and current_user.is_admin != 1:
+        return jsonify({'code':403, 'msg':'无法回复隐藏的帖子'})
+    
     if not data.get('content'):
         logger.warning(f"[论坛评论] 失败 - 评论内容为空")
         return jsonify({'code':400, 'msg':'评论内容不能为空'})
@@ -193,8 +204,6 @@ def forum_comment(post_id):
     
     comment = Comment(content=data['content'], post_id=post_id, user_id=current_user.id, parent_id=parent_id)
     db.session.add(comment)
-    
-    post = Post.query.get(post_id)
     
     if parent_id:
         parent_comment = Comment.query.get(parent_id)
@@ -263,6 +272,19 @@ def forum_delete(post_id):
     logger.info(f"[论坛删帖] 管理员 {current_user.username} 删除帖子 {post_id}")
     return jsonify({'code':200, 'msg':'删除成功'})
 
+@forum_bp.route('/api/forum/hide/<int:post_id>', methods=['POST'])
+@login_required
+def forum_hide(post_id):
+    if current_user.is_admin != 1:
+        return jsonify({'code':403, 'msg':'无权限'})
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({'code':400, 'msg':'帖子不存在'})
+    post.is_hidden = 1
+    db.session.commit()
+    logger.info(f"[隐藏] 管理员 {current_user.username} 隐藏了帖子 {post_id}")
+    return jsonify({'code':200, 'msg':'已隐藏'})
+
 @forum_bp.route('/api/forum/post/<int:post_id>', methods=['PUT'])
 @login_required
 def forum_edit(post_id):
@@ -315,6 +337,8 @@ def forum_like(post_id):
     post = Post.query.get(post_id)
     if not post:
         return jsonify({'code':400, 'msg':'帖子不存在'})
+    if post.is_hidden == 1 and current_user.is_admin != 1:
+        return jsonify({'code':403, 'msg':'帖子不存在'})
     
     existing = PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).first()
     if existing:
@@ -335,6 +359,8 @@ def forum_bookmark(post_id):
     post = Post.query.get(post_id)
     if not post:
         return jsonify({'code':400, 'msg':'帖子不存在'})
+    if post.is_hidden == 1 and current_user.is_admin != 1:
+        return jsonify({'code':403, 'msg':'帖子不存在'})
     existing = Bookmark.query.filter_by(user_id=current_user.id, post_id=post_id).first()
     if existing:
         db.session.delete(existing)
@@ -351,7 +377,11 @@ def forum_bookmark(post_id):
 def forum_attachment_download(post_id):
     from app import app
     post = Post.query.get(post_id)
-    if not post or not post.attachment_path:
+    if not post:
+        return jsonify({'code':400, 'msg':'附件不存在'})
+    if post.is_hidden == 1 and current_user.is_admin != 1:
+        return jsonify({'code':400, 'msg':'附件不存在'})
+    if not post.attachment_path:
         return jsonify({'code':400, 'msg':'附件不存在'})
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(post.attachment_path))
     if not os.path.exists(file_path):

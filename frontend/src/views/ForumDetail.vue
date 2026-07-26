@@ -99,6 +99,9 @@
             <el-button v-if="canEdit" size="small" type="warning" @click="startEdit">
               ✏️ 编辑
             </el-button>
+            <el-button v-if="userStore.userInfo.is_admin === 1" size="small" type="danger" @click="hidePost">
+              🙈 隐藏
+            </el-button>
           </div>
         </div>
       </div>
@@ -192,7 +195,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from '../axios'
 import { API_BASE, DEFAULT_AVATAR_SVG } from '../utils/constants'
 import { renderMarkdown } from '../markdown.js'
@@ -315,6 +318,19 @@ const toggleBookmark = async () => {
   } catch (e) {
     ElMessage.error('操作失败')
   }
+}
+
+const hidePost = async () => {
+  try {
+    await ElMessageBox.confirm('隐藏后普通用户无法查看，可在后台管理中恢复。确定继续吗？', '确认隐藏', { type: 'warning', confirmButtonText: '隐藏', cancelButtonText: '取消' })
+    const res = await axios.post(`/api/forum/hide/${post.value.id}`)
+    if (res.data.code === 200) {
+      ElMessage.success('已隐藏')
+      router.push('/forum')
+    } else {
+      ElMessage.error(res.data.msg)
+    }
+  } catch (e) { if (e !== 'cancel') throw e }
 }
 
 const startEdit = () => {

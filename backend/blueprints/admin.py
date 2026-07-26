@@ -96,7 +96,8 @@ def admin_posts():
             'user': username,
             'create_time': post.create_time.strftime('%Y-%m-%d %H:%M:%S'),
             'comment_count': comment_count,
-            'is_pinned': post.is_pinned
+            'is_pinned': post.is_pinned,
+            'is_hidden': post.is_hidden
         })
     return ok(data=res)
 
@@ -147,6 +148,37 @@ def admin_stats():
         'today_posts': today_posts,
         'today_comments': today_comments
     })
+
+@admin_bp.route('/api/admin/hidden_posts')
+@admin_required
+def admin_hidden_posts():
+    posts = db.session.query(Post, User.username).join(User, Post.user_id == User.id).filter(Post.is_hidden == 1).order_by(Post.create_time.desc()).all()
+    res = []
+    for post, username in posts:
+        comment_count = db.session.query(Comment).filter(Comment.post_id == post.id).count()
+        res.append({
+            'id': post.id,
+            'title': post.title,
+            'user': username,
+            'user_id': post.user_id,
+            'create_time': post.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'comment_count': comment_count,
+            'is_pinned': post.is_pinned
+        })
+    return ok(data=res)
+
+@admin_bp.route('/api/admin/restore_post/<int:post_id>', methods=['POST'])
+@admin_required
+def admin_restore_post(post_id):
+    post = Post.query.get(post_id)
+    if not post:
+        return fail('帖子不存在')
+    if post.is_hidden != 1:
+        return fail('帖子未被隐藏')
+    post.is_hidden = 0
+    db.session.commit()
+    logger.info(f"[恢复] 管理员 {current_user.username} 恢复了帖子 {post_id}")
+    return ok(msg='恢复成功')
 
 @admin_bp.route('/api/admin/announcements')
 @admin_required

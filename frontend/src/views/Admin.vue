@@ -90,17 +90,51 @@
                 <span v-else class="text-gray-300 dark:text-gray-600 text-sm">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="230" fixed="right">
+            <el-table-column label="隐藏" width="60">
+              <template #default="{ row }">
+                <span v-if="row.is_hidden" class="text-red-500 text-sm">🙈 是</span>
+                <span v-else class="text-gray-300 dark:text-gray-600 text-sm">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="300" fixed="right">
               <template #default="{ row }">
                 <el-button-group>
                   <el-button :type="row.is_pinned ? 'warning' : 'default'" size="small" @click="togglePin(row)">{{ row.is_pinned ? '取消置顶' : '置顶' }}</el-button>
                   <el-button type="primary" size="small" @click="viewPost(row.id)">查看详情</el-button>
+                  <el-button type="danger" size="small" @click="hidePost(row.id)">隐藏</el-button>
                   <el-button type="danger" size="small" @click="delPost(row.id)">删除</el-button>
                 </el-button-group>
               </template>
             </el-table-column>
           </el-table>
           <div v-if="posts.length === 0" class="text-center text-gray-400 py-10">暂无帖子</div>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="🙈 隐藏帖子" name="hidden">
+        <el-card shadow="hover" class="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-200">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-lg dark:text-gray-200">🙈 隐藏帖子管理</span>
+              <el-button @click="loadHiddenPosts()" size="small">🔄 刷新列表</el-button>
+            </div>
+          </template>
+          <el-table :data="hiddenPosts" class="w-full" stripe>
+            <el-table-column prop="id" label="ID" width="60" />
+            <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="user" label="作者" width="100" />
+            <el-table-column prop="create_time" label="隐藏时间" width="160" />
+            <el-table-column prop="comment_count" label="评论数" width="80" />
+            <el-table-column label="操作" width="160" fixed="right">
+              <template #default="{ row }">
+                <el-button-group>
+                  <el-button type="success" size="small" @click="restorePost(row.id)">恢复</el-button>
+                  <el-button type="primary" size="small" @click="viewPost(row.id)">查看详情</el-button>
+                </el-button-group>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="hiddenPosts.length === 0" class="text-center text-gray-400 py-10">暂无隐藏帖子</div>
         </el-card>
       </el-tab-pane>
 
@@ -204,6 +238,7 @@ const router = useRouter()
 const activeTab = ref('dashboard')  // 当前激活的标签页
 const users = ref([])  // 用户列表数据
 const posts = ref([])  // 帖子列表数据
+const hiddenPosts = ref([])  // 隐藏帖子列表
 const stats = ref({
   total_users: 0,
   total_posts: 0,
@@ -249,6 +284,40 @@ const getUsers = async () => {
 const getPosts = async () => {
   const res = await axios.get('/api/admin/posts')
   posts.value = res.data.data
+}
+
+// 获取隐藏帖子列表
+const loadHiddenPosts = async () => {
+  const res = await axios.get('/api/admin/hidden_posts')
+  hiddenPosts.value = res.data.data
+}
+
+// 隐藏帖子
+const hidePost = async (id) => {
+  try {
+    await ElMessageBox.confirm('隐藏后普通用户无法查看，可在隐藏帖子管理中恢复。确定继续吗？', '确认隐藏帖子', { type: 'warning', confirmButtonText: '隐藏', cancelButtonText: '取消' })
+    const res = await axios.post(`/api/forum/hide/${id}`)
+    if (res.data.code === 200) {
+      ElMessage.success('已隐藏')
+      getPosts()
+    } else {
+      ElMessage.error(res.data.msg)
+    }
+  } catch (e) { if (e !== 'cancel') throw e }
+}
+
+// 恢复隐藏帖子
+const restorePost = async (id) => {
+  try {
+    await ElMessageBox.confirm('恢复后帖子将对所有用户可见。确定继续吗？', '确认恢复帖子', { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' })
+    const res = await axios.post(`/api/admin/restore_post/${id}`)
+    if (res.data.code === 200) {
+      ElMessage.success('恢复成功')
+      loadHiddenPosts()
+    } else {
+      ElMessage.error(res.data.msg)
+    }
+  } catch (e) { if (e !== 'cancel') throw e }
 }
 
 // 获取当前管理员自己的ID
@@ -406,6 +475,6 @@ const delAnn = async (id) => {
 
 // 页面加载时初始化所有数据（并行请求优化）
 onMounted(() => {
-  Promise.all([loadStats(), getUsers(), getPosts(), getMyId(), getAnnouncements()])
+  Promise.all([loadStats(), getUsers(), getPosts(), getMyId(), getAnnouncements(), loadHiddenPosts()])
 })
 </script>
