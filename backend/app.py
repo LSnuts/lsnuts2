@@ -196,5 +196,8 @@ def handle_send_msg(data):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            logger.warning(f"[启动] 数据库连接失败，将在首次请求时重试: {e}")
     socketio.run(app, debug=False, host='0.0.0.0', port=5000)
