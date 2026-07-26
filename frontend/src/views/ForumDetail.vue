@@ -361,19 +361,25 @@ const submitReply = async () => {
     if (replyingTo.value) {
       payload.parent_id = replyingTo.value.id
     }
-    await axios.post(`/api/forum/comment/${post.value.id}`, payload)
-    ElMessage.success('回复成功')
-    replyContent.value = ''
-    replyingTo.value = null
-    await loadPost()
-    nextTick(() => {
-      const floors = document.querySelectorAll('.floor-container')
-      if (floors.length > 0) {
-        floors[floors.length - 1].scrollIntoView({ behavior: 'smooth' })
-      }
-    })
+    const res = await axios.post(`/api/forum/comment/${post.value.id}`, payload)
+    if (res.data && res.data.code === 200) {
+      ElMessage.success('回复成功')
+      replyContent.value = ''
+      replyingTo.value = null
+      await loadPost()
+      nextTick(() => {
+        const floors = document.querySelectorAll('.floor-container')
+        if (floors.length > 0) {
+          floors[floors.length - 1].scrollIntoView({ behavior: 'smooth' })
+        }
+      })
+    } else {
+      ElMessage.error(res.data?.msg || '回复失败')
+    }
   } catch (e) {
-    ElMessage.error('回复失败')
+    const detail = e.response?.data?.msg || e.message || '回复失败'
+    console.error('回复评论失败:', e)
+    ElMessage.error(detail)
   }
   replying.value = false
 }

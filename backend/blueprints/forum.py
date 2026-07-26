@@ -189,6 +189,9 @@ def forum_detail(post_id):
 def forum_comment(post_id):
     logger.info(f"[论坛评论] 收到请求 - 用户: {current_user.username} (ID:{current_user.id}), 帖子ID: {post_id}")
     data = request.json
+    if not data:
+        logger.warning(f"[论坛评论] 失败 - 请求数据为空或非JSON")
+        return jsonify({'code':400, 'msg':'请求数据格式错误'})
     
     post = Post.query.get(post_id)
     if not post:
@@ -204,49 +207,53 @@ def forum_comment(post_id):
     
     comment = Comment(content=data['content'], post_id=post_id, user_id=current_user.id, parent_id=parent_id)
     db.session.add(comment)
+    db.session.flush()  # 确保 comment.id 可用
     
-    if parent_id:
-        parent_comment = Comment.query.get(parent_id)
-        if parent_comment and parent_comment.user_id != current_user.id:
-            notification = Notification(
-                user_id=parent_comment.user_id,
-                post_id=post_id,
-                comment_id=comment.id,
-                type='comment_reply'
-            )
-            db.session.add(notification)
-            logger.info(f"[通知] 创建 comment_reply 通知给用户 {parent_comment.user_id}")
-    else:
-        if post and post.user_id != current_user.id:
-            notification = Notification(
-                user_id=post.user_id,
-                post_id=post_id,
-                comment_id=comment.id,
-                type='post_reply'
-            )
-            db.session.add(notification)
-            logger.info(f"[通知] 创建 post_reply 通知给用户 {post.user_id}")
-    
-    mentioned_users = re.findall(r'@(\w{2,20})', data['content'])
-    if mentioned_users:
-        mentioned_users = list(set(mentioned_users))
-        for username in mentioned_users:
-            user = User.query.filter_by(username=username).first()
-            if user and user.id != current_user.id:
-                if parent_id:
-                    parent_comment = Comment.query.get(parent_id)
-                    if parent_comment and user.id == parent_comment.user_id:
-                        continue
-                if post and user.id == post.user_id:
-                    continue
+    try:
+        if parent_id:
+            parent_comment = Comment.query.get(parent_id)
+            if parent_comment and parent_comment.user_id != current_user.id:
                 notification = Notification(
-                    user_id=user.id,
+                    user_id=parent_comment.user_id,
                     post_id=post_id,
                     comment_id=comment.id,
-                    type='mention'
+                    type='comment_reply'
                 )
                 db.session.add(notification)
-                logger.info(f"[通知] 创建 mention 通知给用户 {user.username}")
+                logger.info(f"[通知] 创建 comment_reply 通知给用户 {parent_comment.user_id}")
+        else:
+            if post and post.user_id != current_user.id:
+                notification = Notification(
+                    user_id=post.user_id,
+                    post_id=post_id,
+                    comment_id=comment.id,
+                    type='post_reply'
+                )
+                db.session.add(notification)
+                logger.info(f"[通知] 创建 post_reply 通知给用户 {post.user_id}")
+        
+        mentioned_users = re.findall(r'@(\w{2,20})', data['content'])
+        if mentioned_users:
+            mentioned_users = list(set(mentioned_users))
+            for username in mentioned_users:
+                user = User.query.filter_by(username=username).first()
+                if user and user.id != current_user.id:
+                    if parent_id:
+                        parent_comment = Comment.query.get(parent_id)
+                        if parent_comment and user.id == parent_comment.user_id:
+                            continue
+                    if post and user.id == post.user_id:
+                        continue
+                    notification = Notification(
+                        user_id=user.id,
+                        post_id=post_id,
+                        comment_id=comment.id,
+                        type='mention'
+                    )
+                    db.session.add(notification)
+                    logger.info(f"[通知] 创建 mention 通知给用户 {user.username}")
+    except Exception as e:
+        logger.error(f"[通知] 创建通知失败: {e}")
     
     db.session.commit()
     
