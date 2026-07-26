@@ -2,7 +2,7 @@
   <div class="p-3 md:p-5">
     <el-card v-if="user">
       <div class="flex items-center gap-4 mb-6">
-        <el-avatar :size="80" :src="user.avatar || '/default-avatar.png'" />
+        <el-avatar :size="80" :src="getAvatarUrl(user.avatar)" />
         <div>
           <div class="flex items-center gap-2">
             <h2 class="text-2xl font-bold">{{ user.username }}</h2>
@@ -69,6 +69,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '../axios'
 import { ElMessage } from 'element-plus'
+import { getAvatarUrl } from '../utils/helpers'
 
 const route = useRoute()
 const router = useRouter()

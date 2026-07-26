@@ -12,7 +12,7 @@
               <span class="text-2xl">📷</span>
               <div>
                 <div class="text-sm font-medium text-gray-800 dark:text-gray-200">修改头像</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500">裁剪并上传自定义头像</div>
+                <div class="text-xs text-gray-400 dark:text-gray-500">上传自定义头像</div>
               </div>
             </div>
             <span class="text-gray-400 text-lg">›</span>
@@ -40,7 +40,6 @@
         </div>
       </template>
 
-      <!-- ====== 头像子页 ====== -->
       <template v-else-if="activeSection === 'avatar'">
         <el-button class="back-btn" @click="activeSection = ''">← 返回设置</el-button>
         <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">修改头像</div>
@@ -53,11 +52,19 @@
             </div>
           </div>
           <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarFile" />
-          <div class="text-xs text-gray-400 dark:text-gray-500 mt-2">点击头像选择图片 · 支持裁剪</div>
+          <div v-if="!uploadingAvatar" class="text-xs text-gray-400 dark:text-gray-500 mt-2">点击头像选择图片，自动裁剪为方形头像</div>
+          <div v-else class="text-xs text-blue-500 mt-2">正在上传...</div>
+        </div>
+        <div v-if="previewUrl" class="flex flex-col items-center gap-3 mt-2">
+          <div class="text-sm text-gray-600 dark:text-gray-400">预览：</div>
+          <img :src="previewUrl" class="w-32 h-32 object-cover rounded-full shadow-md border-2 border-gray-200 dark:border-gray-600" />
+          <div class="flex gap-2">
+            <el-button size="small" @click="cancelPreview">取消</el-button>
+            <el-button size="small" type="primary" :loading="uploadingAvatar" @click="doUpload">确认上传</el-button>
+          </div>
         </div>
       </template>
 
-      <!-- ====== 用户名子页 ====== -->
       <template v-else-if="activeSection === 'username'">
         <el-button class="back-btn" @click="activeSection = ''">← 返回设置</el-button>
         <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">修改用户名</div>
@@ -68,7 +75,6 @@
         </div>
       </template>
 
-      <!-- ====== 密码子页 ====== -->
       <template v-else-if="activeSection === 'password'">
         <el-button class="back-btn" @click="activeSection = ''">← 返回设置</el-button>
         <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">修改密码</div>
@@ -80,44 +86,11 @@
         </div>
       </template>
     </el-card>
-
-    <!-- 头像裁剪弹窗 -->
-    <el-dialog v-model="cropVisible" title="裁剪头像" width="90% max-w-[520px]" @close="resetCrop">
-      <div class="flex flex-col items-center gap-4">
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center">滚轮缩放图片 · 拖动蓝色方框选择头像区域</div>
-        <div class="crop-stage relative overflow-hidden border-2 border-dashed border-gray-400 dark:border-gray-500 rounded-lg select-none" style="width:320px;height:320px;" @wheel.prevent="onWheel">
-          <img ref="cropImage" :src="cropSrc" class="absolute select-none pointer-events-none"
-            :style="{ left: cropX + 'px', top: cropY + 'px', width: cropW + 'px', height: cropH + 'px' }" />
-          <div class="crop-box absolute cursor-move rounded-lg border-2 border-blue-500"
-            :style="{ left: cropBoxX + 'px', top: cropBoxY + 'px', width: cropBoxSize + 'px', height: cropBoxSize + 'px' }"
-            @mousedown.stop="startBoxDrag">
-            <div class="absolute inset-0 bg-blue-500/10"></div>
-            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500/60"></div>
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-blue-500/60"></div>
-            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500/60"></div>
-            <div class="absolute top-0 right-0 w-1 h-full bg-blue-500/60"></div>
-            <div class="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-blue-500 bg-white rounded-tl-sm"></div>
-            <div class="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-blue-500 bg-white rounded-tr-sm"></div>
-            <div class="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-blue-500 bg-white rounded-bl-sm"></div>
-            <div class="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-blue-500 bg-white rounded-br-sm"></div>
-          </div>
-        </div>
-        <div class="flex items-center gap-4 w-full max-w-[320px]">
-          <span class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">缩放</span>
-          <el-slider v-model="cropScale" :min="50" :max="250" :step="1" class="flex-1" />
-          <el-button size="small" @click="resetCrop">重置</el-button>
-        </div>
-        <div class="flex items-center gap-2">
-          <el-button size="small" @click="cropVisible = false">取消</el-button>
-          <el-button size="small" type="primary" @click="doCropAndUpload" :loading="uploadingAvatar">确认裁剪并上传</el-button>
-        </div>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from '../axios'
 import { ElMessage } from 'element-plus'
 import { DEFAULT_AVATAR_SVG } from '../utils/constants'
@@ -135,22 +108,9 @@ const confirmPassword = ref('')
 const savingPassword = ref(false)
 
 const avatarInput = ref(null)
-const cropVisible = ref(false)
-const cropSrc = ref('')
-const cropImage = ref(null)
-const cropScale = ref(100)
-const cropX = ref(0)
-const cropY = ref(0)
-const cropW = ref(300)
-const cropH = ref(300)
-const cropBoxSize = 220
-const cropBoxX = ref(50)
-const cropBoxY = ref(50)
-const dragStart = ref({ x: 0, y: 0, boxX: 0, boxY: 0 })
-const isDragging = ref(false)
 const uploadingAvatar = ref(false)
-const naturalW = ref(0)
-const naturalH = ref(0)
+const previewUrl = ref('')
+const pendingBlob = ref(null)
 
 const avatarUrl = computed(() => {
   return getAvatarUrl(userInfo.value.avatar) || DEFAULT_AVATAR_SVG
@@ -192,28 +152,25 @@ const changePassword = async () => {
 
 const triggerAvatarInput = () => { avatarInput.value?.click() }
 
-// 图片压缩：限制最大尺寸，减少内存占用和上传体积
-const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) => {
+const processImage = (file) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
       URL.revokeObjectURL(url)
-      let { width, height } = img
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height)
-        width *= ratio
-        height *= ratio
-      }
+      const size = 300
       const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
+      canvas.width = size
+      canvas.height = size
       const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, width, height)
+      const side = Math.min(img.width, img.height)
+      const sx = (img.width - side) / 2
+      const sy = (img.height - side) / 2
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size)
       canvas.toBlob((blob) => {
         if (blob) resolve(blob)
-        else reject(new Error('压缩失败'))
-      }, 'image/jpeg', quality)
+        else reject(new Error('处理失败'))
+      }, 'image/jpeg', 0.9)
     }
     img.onerror = reject
     img.src = url
@@ -223,90 +180,44 @@ const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) =
 const onAvatarFile = async (e) => {
   const file = e.target.files[0]
   if (!file) return
-  if (file.size > 5 * 1024 * 1024) { ElMessage.warning('图片大小不能超过5M'); return }
+  if (file.size > 10 * 1024 * 1024) { ElMessage.warning('图片大小不能超过10M'); return }
   try {
-    const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
-    const reader = new FileReader()
-    reader.onload = (ev) => { cropSrc.value = ev.target.result; cropVisible.value = true; nextTick(() => { resetCrop() }) }
-    reader.readAsDataURL(compressedBlob)
+    const blob = await processImage(file)
+    pendingBlob.value = blob
+    previewUrl.value = URL.createObjectURL(blob)
   } catch {
     ElMessage.error('图片处理失败')
   }
   e.target.value = ''
 }
-const resetCrop = () => {
-  cropScale.value = 100
-  cropBoxX.value = (320 - cropBoxSize) / 2
-  cropBoxY.value = (320 - cropBoxSize) / 2
-  if (!cropImage.value) return
-  naturalW.value = cropImage.value.naturalWidth
-  naturalH.value = cropImage.value.naturalHeight
-  const maxDim = 280
-  const s = Math.min(maxDim / naturalW.value, maxDim / naturalH.value, 1)
-  cropW.value = naturalW.value * s
-  cropH.value = naturalH.value * s
-  cropX.value = (320 - cropW.value) / 2
-  cropY.value = (320 - cropH.value) / 2
+
+const cancelPreview = () => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
+  pendingBlob.value = null
 }
 
-const onWheel = (e) => { const delta = e.deltaY > 0 ? -10 : 10; cropScale.value = Math.max(50, Math.min(250, cropScale.value + delta)) }
-const startBoxDrag = (e) => {
-  isDragging.value = true
-  dragStart.value = { x: e.clientX, y: e.clientY, boxX: cropBoxX.value, boxY: cropBoxY.value }
-  const onMove = (ev) => {
-    if (!isDragging.value) return
-    const newX = dragStart.value.boxX + (ev.clientX - dragStart.value.x)
-    const newY = dragStart.value.boxY + (ev.clientY - dragStart.value.y)
-    cropBoxX.value = Math.max(0, Math.min(320 - cropBoxSize, newX))
-    cropBoxY.value = Math.max(0, Math.min(320 - cropBoxSize, newY))
-  }
-  const onUp = () => { isDragging.value = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-  document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
+const doUpload = async () => {
+  if (!pendingBlob.value) return
+  uploadingAvatar.value = true
+  try {
+    const formData = new FormData()
+    formData.append('avatar', pendingBlob.value, 'avatar.jpg')
+    await axios.post('/api/user/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    ElMessage.success('头像更新成功')
+    if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = ''
+    pendingBlob.value = null
+    loadUserInfo()
+    emit('avatar-change')
+  } catch (e) { ElMessage.error(e.response?.data?.msg || '上传失败') }
+  finally { uploadingAvatar.value = false }
 }
-const doCropAndUpload = () => {
-  const img = cropImage.value
-  if (!img) return
-  const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 200
-  const ctx = canvas.getContext('2d')
-  const scale = img.naturalWidth / cropW.value
-  
-  const sourceX = (cropBoxX.value - cropX.value) * scale
-  const sourceY = (cropBoxY.value - cropY.value) * scale
-  const sourceSize = cropBoxSize * scale
-  
-  ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, 200, 200)
-  
-  ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 200, 200)
-  
-  canvas.toBlob(async (blob) => {
-    uploadingAvatar.value = true
-    try {
-      const formData = new FormData(); formData.append('avatar', blob, 'avatar.jpg')
-      await axios.post('/api/user/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      ElMessage.success('头像更新成功')
-      cropVisible.value = false; loadUserInfo(); emit('avatar-change')
-    } catch (e) { ElMessage.error(e.response?.data?.msg || '上传失败') }
-    finally { uploadingAvatar.value = false }
-  }, 'image/jpeg', 0.85)
-}
-watch(cropScale, (val) => {
-  if (!cropImage.value) return
-  const scale = val / 100
-  const maxDim = 280 * scale
-  const s = Math.min(maxDim / naturalW.value, maxDim / naturalH.value)
-  const newW = naturalW.value * s
-  const newH = naturalH.value * s
-  cropX.value += (cropW.value - newW) / 2
-  cropY.value += (cropH.value - newH) / 2
-  cropW.value = newW
-  cropH.value = newH
-})
+
 onMounted(loadUserInfo)
 </script>
 
 <style scoped>
-.crop-stage { background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
-.dark .crop-stage { background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 16px 16px; }
 .settings-entry {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px; border-radius: 10px;
