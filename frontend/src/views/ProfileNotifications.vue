@@ -11,7 +11,7 @@
       <div v-else class="space-y-3">
         <div v-for="n in notifications" :key="n.id" class="p-3 rounded-lg border dark:border-gray-700" :class="n.is_read ? '' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'">
           <div class="text-sm text-gray-800 dark:text-gray-200">
-            <span class="font-medium">{{ n.replier }}</span>
+            <span class="font-medium">{{ n.username }}</span>
             <span class="text-blue-600 dark:text-blue-400 ml-1">{{ n.type === 'post_reply' ? '回复了你的帖子' : n.type === 'mention' ? '在评论中@了你' : '回复了你的评论' }}</span>
           </div>
           <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{{ n.comment_content }}</div>

@@ -341,7 +341,7 @@ const startEdit = () => {
 
 const submitEdit = async () => {
   try {
-    await axios.put(`/api/forum/edit/${post.value.id}`, {
+    await axios.put(`/api/forum/post/${post.value.id}`, {
       title: editTitle.value,
       content: editContent.value,
     })
@@ -357,11 +357,14 @@ const submitReply = async () => {
   if (!replyContent.value.trim()) return
   replying.value = true
   try {
-    await axios.post(`/api/forum/comment/${post.value.id}`, {
-      content: replyContent.value,
-    })
+    const payload = { content: replyContent.value }
+    if (replyingTo.value) {
+      payload.parent_id = replyingTo.value.id
+    }
+    await axios.post(`/api/forum/comment/${post.value.id}`, payload)
     ElMessage.success('回复成功')
     replyContent.value = ''
+    replyingTo.value = null
     await loadPost()
     nextTick(() => {
       const floors = document.querySelectorAll('.floor-container')
