@@ -30,14 +30,20 @@ def generate_account_code():
 
 @auth_bp.route('/api/login', methods=['POST'])
 def api_login():
-    secure_info(f"[登录] 收到登录请求", request.json)
     data = request.json
-    user = User.query.filter_by(username=data['username']).first()
+    if not data or not isinstance(data, dict):
+        return jsonify({'code': 400, 'msg': '请提供有效的请求数据'})
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    if not username or not password:
+        return jsonify({'code': 400, 'msg': '用户名和密码不能为空'})
+    secure_info(f"[登录] 收到登录请求 - 用户: {username}")
+    user = User.query.filter_by(username=username).first()
     if not user:
-        secure_warning(f"[登录] 失败 - 用户不存在: {data.get('username')}")
+        secure_warning(f"[登录] 失败 - 用户不存在: {username}")
         return jsonify({'code': 400, 'msg': '该用户还未注册'})
-    if not verify_password(data['password'], user.password):
-        secure_warning(f"[登录] 失败 - 密码错误: {data.get('username')}")
+    if not verify_password(password, user.password):
+        secure_warning(f"[登录] 失败 - 密码错误: {username}")
         return jsonify({'code': 400, 'msg': '密码错误'})
     login_user(user)
     secure_info(f"[登录] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {user.account_code}")
@@ -47,19 +53,29 @@ def api_login():
 
 @auth_bp.route('/api/register', methods=['POST'])
 def api_register():
-    secure_info(f"[注册] 收到注册请求", request.json)
     data = request.json
-    if User.query.filter_by(username=data['username']).first():
-        secure_warning(f"[注册] 失败 - 用户名已存在: {data.get('username')}")
+    if not data or not isinstance(data, dict):
+        return jsonify({'code': 400, 'msg': '请提供有效的请求数据'})
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    if not username or not password:
+        return jsonify({'code': 400, 'msg': '用户名和密码不能为空'})
+    if len(username) < 2 or len(username) > 20:
+        return jsonify({'code': 400, 'msg': '用户名需2-20个字符'})
+    if len(password) < 6 or len(password) > 30:
+        return jsonify({'code': 400, 'msg': '密码需6-30个字符'})
+    secure_info(f"[注册] 收到注册请求 - 用户: {username}")
+    if User.query.filter_by(username=username).first():
+        secure_warning(f"[注册] 失败 - 用户名已存在: {username}")
         return jsonify({'code': 400, 'msg': '用户名已存在'})
     account_code = generate_account_code()
-    user = User(username=data['username'], account_code=account_code, password=hash_password(data['password']))
+    user = User(username=username, account_code=account_code, password=hash_password(password))
     db.session.add(user)
     db.session.commit()
     secure_info(f"[注册] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {account_code}")
     return jsonify({'code': 200, 'msg': '注册成功', 'data': {'account_code': account_code}})
 
-@auth_bp.route('/api/logout')
+@auth_bp.route('/api/logout', methods=['POST'])
 @login_required
 def api_logout():
     logout_user()

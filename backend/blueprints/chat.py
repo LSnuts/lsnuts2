@@ -153,8 +153,10 @@ def online_users():
 @login_required
 def send_chat_message():
     data = request.get_json()
+    if not data or not isinstance(data, dict):
+        return jsonify({'code': 400, 'msg': '请提供有效的请求数据'}), 400
     receiver_id = data.get('receiver_id')
-    content = data.get('content')
+    content = (data.get('content') or '').strip()
     
     if not receiver_id or not content:
         return jsonify({'code': 400, 'msg': '缺少参数'}), 400
@@ -205,6 +207,8 @@ def search_users():
 @login_required
 def send_friend_request():
     data = request.get_json()
+    if not data or not isinstance(data, dict):
+        return jsonify({'code': 400, 'msg': '请提供有效的请求数据'}), 400
     user_id = data.get('user_id')
     
     if not user_id:

@@ -37,7 +37,10 @@ def admin_users():
 def admin_delete(uid):
     if uid == current_user.id:
         return fail('不能删除自己')
-    db.session.delete(User.query.get(uid))
+    user = User.query.get(uid)
+    if not user:
+        return fail('用户不存在', 404)
+    db.session.delete(user)
     db.session.commit()
     return ok(msg='删除成功')
 
@@ -65,9 +68,13 @@ def admin_update(uid):
     from utils import hash_password
     if uid == current_user.id:
         return fail('不能修改自己')
-    
+
     data = request.json
+    if not data or not isinstance(data, dict):
+        return fail('请提供有效的请求数据')
     user = User.query.get(uid)
+    if not user:
+        return fail('用户不存在', 404)
     
     if 'username' in data and data['username']:
         if User.query.filter(User.username == data['username'], User.id != uid).first():
@@ -198,12 +205,16 @@ def admin_announcements():
 @admin_required
 def admin_create_announcement():
     data = request.json
-    if not data.get('title') or not data.get('content'):
+    if not data or not isinstance(data, dict):
+        return fail('请提供有效的请求数据')
+    title = (data.get('title') or '').strip()
+    content = (data.get('content') or '').strip()
+    if not title or not content:
         return fail('标题和内容不能为空')
     
     announcement = Announcement(
-        title=data['title'],
-        content=data['content'],
+        title=title,
+        content=content,
         priority=int(data.get('priority', 0)),
         is_pinned=int(data.get('is_pinned', 0))
     )
@@ -220,6 +231,8 @@ def admin_update_announcement(ann_id):
         return fail('公告不存在')
     
     data = request.json
+    if not data or not isinstance(data, dict):
+        return fail('请提供有效的请求数据')
     if 'title' in data:
         announcement.title = data['title']
     if 'content' in data:

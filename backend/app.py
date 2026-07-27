@@ -66,6 +66,7 @@ app.config['SECRET_KEY'] = load_or_generate_secret_key()
 
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # 生产环境强制 HTTPS
 
 if os.environ.get('DATABASE_URL'):
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -92,7 +93,10 @@ def load_user_from_request(request):
 @login_manager.unauthorized_handler
 def unauthorized():
     return jsonify({'code': 401, 'msg': '请先登录'}), 401
-socketio = SocketIO(app, cors_allowed_origins=['http://localhost:5173', 'http://127.0.0.1:5173'])
+socketio_cors_origins = ['http://localhost:5173', 'http://127.0.0.1:5173']
+if frontend_url:
+    socketio_cors_origins.append(frontend_url)
+socketio = SocketIO(app, cors_allowed_origins=socketio_cors_origins)
 limiter = Limiter(get_remote_address, app=app, default_limits=["100 per minute"])
 migrate = Migrate(app, db)
 
@@ -152,19 +156,26 @@ def uploaded_file(filename):
     
     if not os.path.exists(file_path):
         return jsonify({'code': 404, 'msg': '文件不存在'}), 404
-    
-    return send_file(file_path)
+
+    # 图片类型内联显示，其他类型强制下载防止 XSS
+    ext = safe_filename.rsplit('.', 1)[1].lower() if '.' in safe_filename else ''
+    if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'):
+        return send_file(file_path)
+    return send_file(file_path, as_attachment=True, download_name=safe_filename)
 
 @socketio.on('join')
 def handle_join(data):
-    user_id = data.get('user_id')
+    # 必须验证 current_user，禁止客户端伪造 user_id
+    if not current_user.is_authenticated:
+        logger.warning(f"[SocketIO-join] 拒绝 - 未认证连接 sid: {request.sid}")
+        return
+    user_id = str(current_user.id)
     logger.info(f"[SocketIO-join] 用户加入 - user_id: {user_id}, sid: {request.sid}")
-    if user_id:
-        socketio.server.enter_room(request.sid, str(user_id))
-        if str(user_id) not in online_users_sockets:
-            online_users_sockets[str(user_id)] = set()
-        online_users_sockets[str(user_id)].add(request.sid)
-        logger.info(f"[SocketIO-join] 用户 {user_id} 已加入房间，在线用户: {list(online_users_sockets.keys())}")
+    socketio.server.enter_room(request.sid, user_id)
+    if user_id not in online_users_sockets:
+        online_users_sockets[user_id] = set()
+    online_users_sockets[user_id].add(request.sid)
+    logger.info(f"[SocketIO-join] 用户 {user_id} 已加入房间，在线用户: {list(online_users_sockets.keys())}")
 
 @socketio.on('send_message')
 def handle_send_msg(data):

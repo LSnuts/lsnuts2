@@ -48,10 +48,33 @@ def drive_upload():
     file = request.files['file']
     if not file or file.filename == '':
         return jsonify({'code':400, 'msg':'请选择文件'})
+
+    # 文件扩展名白名单：禁止上传可执行/脚本/HTML等危险类型
+    allowed_extensions = {
+        'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+        'txt', 'md', 'csv', 'json', 'xml',
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+        'zip', 'rar', '7z', 'tar', 'gz',
+        'mp3', 'mp4', 'avi', 'mov', 'wav',
+        'py', 'js', 'vue', 'css', 'html', 'htm',
+        'java', 'c', 'cpp', 'h', 'go', 'rs', 'ts',
+    }
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in allowed_extensions:
+        logger.warning(f"[网盘上传] 拒绝上传 - 不允许的文件类型: .{ext}")
+        return jsonify({'code':400, 'msg':f'不支持的文件类型: .{ext}'})
+
+    # 文件大小限制（在全局 MAX_CONTENT_LENGTH 基础上再次检查）
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > 100 * 1024 * 1024:  # 100MB
+        return jsonify({'code':400, 'msg':'文件大小不能超过100M'})
+
     filename = secure_filename(file.filename)
     unique_name = f"{uuid.uuid4().hex}_{filename}"
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
-    
+
     category = request.form.get('category', '默认')
     db.session.add(File(filename=filename, file_path=unique_name, user_id=current_user.id, category=category))
     db.session.commit()
@@ -117,12 +140,15 @@ def drive_update_category(file_id):
 @login_required
 def drive_share(file_id):
     from datetime import timedelta
-    
+
     file = File.query.get(file_id)
     if not file or file.user_id != current_user.id:
         return jsonify({'code':403, 'msg':'无权限'})
-    
-    days = request.json.get('days', 7)
+
+    data = request.json
+    if not data or not isinstance(data, dict):
+        data = {}
+    days = data.get('days', 7)
     file.share_token = uuid.uuid4().hex
     file.share_expire = datetime.now(timezone.utc) + timedelta(days=days)
     db.session.commit()

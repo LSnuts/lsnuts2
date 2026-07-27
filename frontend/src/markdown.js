@@ -1,27 +1,35 @@
+function escapeAttr(str) {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function isSafeUrl(url) {
+  const lower = (url || '').toLowerCase()
+  return !(lower.startsWith('javascript:') ||
+           lower.startsWith('data:') ||
+           lower.startsWith('vbscript:'))
+}
+
 export function renderMarkdown(text) {
   if (!text) return ''
   let html = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  // 图片链接过滤：只允许 http/https 协议
+  // 图片链接过滤：只允许 http/https 协议，并对属性做严格转义
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-    if (url.toLowerCase().startsWith('javascript:') || 
-        url.toLowerCase().startsWith('data:') ||
-        url.toLowerCase().startsWith('vbscript:')) {
-      return alt
-    }
-    return `<img src="${url}" alt="${alt}" class="max-w-full rounded my-2">`
+    if (!isSafeUrl(url)) return escapeAttr(alt)
+    return `<img src="${escapeAttr(url)}" alt="${escapeAttr(alt)}" class="max-w-full rounded my-2">`
   })
   // 链接过滤：只允许 http/https 协议，防止 javascript: 协议攻击
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    if (url.toLowerCase().startsWith('javascript:') || 
-        url.toLowerCase().startsWith('vbscript:') ||
-        url.toLowerCase().startsWith('data:') ||
-        url.toLowerCase().startsWith('file:')) {
-      return text
-    }
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 underline">${text}</a>`
+    if (!isSafeUrl(url) || (url || '').toLowerCase().startsWith('file:')) return escapeAttr(text)
+    return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 underline">${escapeAttr(text)}</a>`
   })
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')

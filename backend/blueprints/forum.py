@@ -118,6 +118,21 @@ def forum_post():
     
     attach_file = request.files.get('attachment')
     if attach_file and attach_file.filename:
+        # 附件类型白名单，禁止上传可执行/脚本文件
+        attach_allowed = {'pdf','doc','docx','xls','xlsx','ppt','pptx',
+                          'txt','md','csv','json','zip','rar','7z',
+                          'jpg','jpeg','png','gif','webp','mp3','mp4'}
+        attach_ext = attach_file.filename.rsplit('.', 1)[1].lower() if '.' in attach_file.filename else ''
+        if attach_ext not in attach_allowed:
+            logger.warning(f"[论坛发帖] 附件类型被拒: .{attach_ext}")
+            return jsonify({'code':400, 'msg':f'不支持的附件类型: .{attach_ext}'})
+
+        attach_file.seek(0, 2)
+        attach_size = attach_file.tell()
+        attach_file.seek(0)
+        if attach_size > 10 * 1024 * 1024:
+            return jsonify({'code':400, 'msg':'附件大小不能超过10M'})
+
         original_name = secure_filename(attach_file.filename)
         store_name = f"post_attach_{uuid.uuid4().hex}_{original_name}"
         attach_path = os.path.join(app.config['UPLOAD_FOLDER'], store_name)
@@ -189,7 +204,7 @@ def forum_detail(post_id):
 def forum_comment(post_id):
     logger.info(f"[论坛评论] 收到请求 - 用户: {current_user.username} (ID:{current_user.id}), 帖子ID: {post_id}")
     data = request.json
-    if not data:
+    if not data or not isinstance(data, dict):
         logger.warning(f"[论坛评论] 失败 - 请求数据为空或非JSON")
         return jsonify({'code':400, 'msg':'请求数据格式错误'})
     
@@ -202,8 +217,15 @@ def forum_comment(post_id):
     if not data.get('content'):
         logger.warning(f"[论坛评论] 失败 - 评论内容为空")
         return jsonify({'code':400, 'msg':'评论内容不能为空'})
-    
+
     parent_id = data.get('parent_id')
+    # 校验 parent_id 是否属于同一帖子
+    if parent_id:
+        parent_comment = Comment.query.get(parent_id)
+        if not parent_comment:
+            return jsonify({'code':400, 'msg':'回复的评论不存在'})
+        if parent_comment.post_id != post_id:
+            return jsonify({'code':400, 'msg':'回复的评论不属于该帖子'})
     
     comment = Comment(content=data['content'], post_id=post_id, user_id=current_user.id, parent_id=parent_id)
     db.session.add(comment)
@@ -303,8 +325,10 @@ def forum_edit(post_id):
     
     if datetime.now(timezone.utc) - post.create_time > timedelta(hours=24):
         return jsonify({'code':403, 'msg':'发表超过24小时无法编辑'})
-    
+
     data = request.json
+    if not data or not isinstance(data, dict):
+        return jsonify({'code':400, 'msg':'请提供有效的请求数据'})
     title = data.get('title', '').strip()
     content = data.get('content', '').strip()
     tag = data.get('tag', '')
