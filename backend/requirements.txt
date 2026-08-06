@@ -14,5 +14,5 @@ psycopg2-binary==2.9.9  # PostgreSQL
 
 # 其他依赖
 Werkzeug==3.0.1  # 密码哈希
-eventlet==0.33.3  # SocketIO 异步驱动
+# SocketIO 使用 threading 模式，兼容 Python 3.13；不再依赖 eventlet
 python-dotenv==1.0.0  # 环境变量配置

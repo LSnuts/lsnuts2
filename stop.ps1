@@ -1,59 +1,62 @@
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-$isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+param(
+    [switch]$KeepPostgres
+)
 
-if (-not $isAdmin) {
-    $scriptPath = $MyInvocation.MyCommand.Path
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs -Wait
+$ErrorActionPreference = 'Stop'
+$projectDir = $PSScriptRoot
+$runtimeDir = Join-Path $projectDir 'instance\runtime'
+$backendPidFile = Join-Path $runtimeDir 'backend.pid'
+$tunnelPidFile = Join-Path $runtimeDir 'cloudflared.pid'
+$pgServiceName = 'postgresql-x64-18'
+
+function Stop-OwnedProcess($pidFile, $processName, $label) {
+    if (-not (Test-Path $pidFile)) {
+        Write-Host "$label is not managed by this project" -ForegroundColor Gray
+        return
+    }
+    $pid = 0
+    $raw = Get-Content $pidFile -Raw
+    if (-not [int]::TryParse($raw.Trim(), [ref]$pid)) {
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        Write-Host "$label PID file is invalid" -ForegroundColor Gray
+        return
+    }
+    $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    if ($process -and $process.ProcessName -eq $processName) {
+        Stop-Process -Id $pid -Force
+        Write-Host "$label stopped (PID $pid)" -ForegroundColor Green
+    } else {
+        Write-Host "$label is not running" -ForegroundColor Gray
+    }
+    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+}
+
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath) -Verb RunAs -Wait
     exit 0
 }
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[System.Console]::InputEncoding = [System.Text.Encoding]::UTF8
-chcp 65001 > $null
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
-Write-Host "============================================" -ForegroundColor Red
-Write-Host "  Stopping lsnuts2 Project" -ForegroundColor Red
-Write-Host "============================================" -ForegroundColor Red
-Write-Host ""
+Write-Host '============================================' -ForegroundColor Red
+Write-Host '  Stopping lsnuts2 Project' -ForegroundColor Red
+Write-Host '============================================' -ForegroundColor Red
 
-Write-Host "[1/3] Stopping backend service..." -ForegroundColor Yellow
-$backendProcess = Get-Process python -ErrorAction SilentlyContinue
-if ($backendProcess) {
-    Stop-Process -Name python -Force -ErrorAction SilentlyContinue
-    Write-Host "Backend service stopped" -ForegroundColor Green
+Stop-OwnedProcess $backendPidFile 'python' 'Backend'
+Stop-OwnedProcess $tunnelPidFile 'cloudflared' 'Cloudflare Tunnel'
+
+if ($KeepPostgres) {
+    Write-Host 'PostgreSQL kept running' -ForegroundColor Yellow
 } else {
-    Write-Host "No backend service running" -ForegroundColor Gray
-}
-Write-Host ""
-
-Write-Host "[2/3] Stopping Cloudflare Tunnel..." -ForegroundColor Yellow
-$tunnelProcess = Get-Process cloudflared -ErrorAction SilentlyContinue
-if ($tunnelProcess) {
-    Stop-Process -Name cloudflared -Force -ErrorAction SilentlyContinue
-    Write-Host "Cloudflare Tunnel stopped" -ForegroundColor Green
-} else {
-    Write-Host "No Cloudflare Tunnel running" -ForegroundColor Gray
-}
-Write-Host ""
-
-Write-Host "[3/3] Stopping PostgreSQL database..." -ForegroundColor Yellow
-$pgService = Get-Service postgresql-x64-18 -ErrorAction SilentlyContinue
-if ($pgService -and $pgService.Status -eq 'Running') {
-    try {
-        Stop-Service postgresql-x64-18 -ErrorAction Stop
-        Write-Host "PostgreSQL stopped" -ForegroundColor Green
-    } catch {
-        Write-Host "ERROR: Failed to stop PostgreSQL: $_" -ForegroundColor Red
+    $pgService = Get-Service $pgServiceName -ErrorAction SilentlyContinue
+    if ($pgService -and $pgService.Status -eq 'Running') {
+        Stop-Service $pgServiceName
+        Write-Host 'PostgreSQL stopped' -ForegroundColor Green
+    } else {
+        Write-Host 'PostgreSQL is not running' -ForegroundColor Gray
     }
-} else {
-    Write-Host "PostgreSQL is not running" -ForegroundColor Gray
 }
-Write-Host ""
 
-Write-Host "============================================" -ForegroundColor Red
-Write-Host "  All services stopped!" -ForegroundColor Green
-Write-Host ""
-Write-Host "To start all services, run: start.ps1" -ForegroundColor Yellow
-Write-Host "============================================" -ForegroundColor Red
-
-Read-Host "Press Enter to exit"
+Write-Host '============================================' -ForegroundColor Red
