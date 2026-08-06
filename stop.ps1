@@ -1,6 +1,4 @@
-param(
-    [switch]$KeepPostgres
-)
+param([switch]$KeepPostgres)
 
 $ErrorActionPreference = 'Stop'
 $projectDir = $PSScriptRoot
@@ -9,54 +7,40 @@ $backendPidFile = Join-Path $runtimeDir 'backend.pid'
 $tunnelPidFile = Join-Path $runtimeDir 'cloudflared.pid'
 $pgServiceName = 'postgresql-x64-18'
 
-function Stop-OwnedProcess($pidFile, $processName, $label) {
-    if (-not (Test-Path $pidFile)) {
-        Write-Host "$label is not managed by this project" -ForegroundColor Gray
-        return
+function Read-Pid($path) {
+    if (-not (Test-Path $path)) { return $null }
+    $value = 0
+    if ([int]::TryParse((Get-Content $path -Raw).Trim(), [ref]$value)) { return $value }
+    return $null
+}
+function Stop-Owned($path, $name, $label) {
+    $pid = Read-Pid $path
+    if ($pid) {
+        $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        if ($p -and $p.ProcessName -eq $name) { Stop-Process -Id $pid -Force; Write-Host "$label stopped" -ForegroundColor Green }
     }
-    $pid = 0
-    $raw = Get-Content $pidFile -Raw
-    if (-not [int]::TryParse($raw.Trim(), [ref]$pid)) {
-        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
-        Write-Host "$label PID file is invalid" -ForegroundColor Gray
-        return
+    Remove-Item $path -Force -ErrorAction SilentlyContinue
+}
+
+try {
+    $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        $ps = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        Start-Process -FilePath $ps -WorkingDirectory $projectDir -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$PSCommandPath) -Verb RunAs -Wait
+        exit 0
     }
-    $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
-    if ($process -and $process.ProcessName -eq $processName) {
-        Stop-Process -Id $pid -Force
-        Write-Host "$label stopped (PID $pid)" -ForegroundColor Green
+    Write-Host 'Stopping lsnuts2...' -ForegroundColor Red
+    Stop-Owned $backendPidFile 'python' 'Backend'
+    Stop-Owned $tunnelPidFile 'cloudflared' 'Cloudflare Tunnel'
+    if ($KeepPostgres) {
+        Write-Host 'PostgreSQL kept running' -ForegroundColor Yellow
     } else {
-        Write-Host "$label is not running" -ForegroundColor Gray
+        $pg = Get-Service $pgServiceName -ErrorAction SilentlyContinue
+        if ($pg -and $pg.Status -eq 'Running') { Stop-Service $pgServiceName; Write-Host 'PostgreSQL stopped' -ForegroundColor Green }
     }
-    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    Read-Host 'Stop completed. Press Enter to close'
+} catch {
+    Write-Host "Stop failed: $($_.Exception.Message)" -ForegroundColor Red
+    Read-Host 'Press Enter to close'
+    exit 1
 }
-
-$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath) -Verb RunAs -Wait
-    exit 0
-}
-
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[Console]::InputEncoding = [System.Text.Encoding]::UTF8
-
-Write-Host '============================================' -ForegroundColor Red
-Write-Host '  Stopping lsnuts2 Project' -ForegroundColor Red
-Write-Host '============================================' -ForegroundColor Red
-
-Stop-OwnedProcess $backendPidFile 'python' 'Backend'
-Stop-OwnedProcess $tunnelPidFile 'cloudflared' 'Cloudflare Tunnel'
-
-if ($KeepPostgres) {
-    Write-Host 'PostgreSQL kept running' -ForegroundColor Yellow
-} else {
-    $pgService = Get-Service $pgServiceName -ErrorAction SilentlyContinue
-    if ($pgService -and $pgService.Status -eq 'Running') {
-        Stop-Service $pgServiceName
-        Write-Host 'PostgreSQL stopped' -ForegroundColor Green
-    } else {
-        Write-Host 'PostgreSQL is not running' -ForegroundColor Gray
-    }
-}
-
-Write-Host '============================================' -ForegroundColor Red
