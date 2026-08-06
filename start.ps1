@@ -21,18 +21,18 @@ function Wait-Port($port, $seconds) {
 }
 function Read-Pid($path) {
     if (-not (Test-Path $path)) { return $null }
-    $value = 0
-    if ([int]::TryParse((Get-Content $path -Raw).Trim(), [ref]$value)) { return $value }
+    $processId = 0
+    if ([int]::TryParse((Get-Content $path -Raw).Trim(), [ref]$processId)) { return $processId }
     return $null
 }
-function Is-OwnedProcess($pid, $name) {
-    if (-not $pid) { return $false }
-    $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+function Is-OwnedProcess($processId, $name) {
+    if (-not $processId) { return $false }
+    $p = Get-Process -Id $processId -ErrorAction SilentlyContinue
     return $null -ne $p -and $p.ProcessName -eq $name
 }
 function Stop-ForFailure($pidFile) {
-    $pid = Read-Pid $pidFile
-    if ($pid) { Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue }
+    $processId = Read-Pid $pidFile
+    if ($processId) { Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue }
     Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 }
 
@@ -57,23 +57,23 @@ try {
     if ((Get-Service $pgServiceName).Status -ne 'Running') { throw 'PostgreSQL failed to start' }
     Write-Host 'PostgreSQL: OK' -ForegroundColor Green
 
-    $backendPid = Read-Pid $backendPidFile
-    if (Is-OwnedProcess $backendPid 'python') {
-        Write-Host "Backend already running: PID $backendPid" -ForegroundColor Green
+    $backendProcessId = Read-Pid $backendPidFile
+    if (Is-OwnedProcess $backendProcessId 'python') {
+        Write-Host "Backend already running: PID $backendProcessId" -ForegroundColor Green
     } else {
         Remove-Item $backendPidFile -Force -ErrorAction SilentlyContinue
-        $p = Start-Process -FilePath $pythonPath -WorkingDirectory $backendDir -ArgumentList @('-u',$backendScript) -RedirectStandardOutput (Join-Path $logDir 'backend.out.log') -RedirectStandardError (Join-Path $logDir 'backend.err.log') -PassThru
+        $p = Start-Process -FilePath $pythonPath -WorkingDirectory $backendDir -ArgumentList @('-u',$backendScript) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir 'backend.out.log') -RedirectStandardError (Join-Path $logDir 'backend.err.log') -PassThru
         Set-Content $backendPidFile $p.Id
         if (-not (Wait-Port 5000 30)) { throw 'Backend did not listen on port 5000' }
         Write-Host "Backend: OK (PID $($p.Id))" -ForegroundColor Green
     }
 
-    $tunnelPid = Read-Pid $tunnelPidFile
-    if (Is-OwnedProcess $tunnelPid 'cloudflared') {
-        Write-Host "Cloudflare Tunnel already running: PID $tunnelPid" -ForegroundColor Green
+    $tunnelProcessId = Read-Pid $tunnelPidFile
+    if (Is-OwnedProcess $tunnelProcessId 'cloudflared') {
+        Write-Host "Cloudflare Tunnel already running: PID $tunnelProcessId" -ForegroundColor Green
     } else {
         Remove-Item $tunnelPidFile -Force -ErrorAction SilentlyContinue
-        $t = Start-Process -FilePath $tunnelPath -WorkingDirectory $projectDir -ArgumentList @('tunnel','--config',$tunnelConfig,'run') -RedirectStandardOutput (Join-Path $logDir 'cloudflared.out.log') -RedirectStandardError (Join-Path $logDir 'cloudflared.err.log') -PassThru
+        $t = Start-Process -FilePath $tunnelPath -WorkingDirectory $projectDir -ArgumentList @('tunnel','--config',$tunnelConfig,'run') -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir 'cloudflared.out.log') -RedirectStandardError (Join-Path $logDir 'cloudflared.err.log') -PassThru
         Set-Content $tunnelPidFile $t.Id
         Start-Sleep 3
         if ($t.HasExited) { throw 'Cloudflare Tunnel failed to start' }

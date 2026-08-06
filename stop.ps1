@@ -9,15 +9,15 @@ $pgServiceName = 'postgresql-x64-18'
 
 function Read-Pid($path) {
     if (-not (Test-Path $path)) { return $null }
-    $value = 0
-    if ([int]::TryParse((Get-Content $path -Raw).Trim(), [ref]$value)) { return $value }
+    $processId = 0
+    if ([int]::TryParse((Get-Content $path -Raw).Trim(), [ref]$processId)) { return $processId }
     return $null
 }
 function Stop-Owned($path, $name, $label) {
-    $pid = Read-Pid $path
-    if ($pid) {
-        $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
-        if ($p -and $p.ProcessName -eq $name) { Stop-Process -Id $pid -Force; Write-Host "$label stopped" -ForegroundColor Green }
+    $processId = Read-Pid $path
+    if ($processId) {
+        $p = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($p -and $p.ProcessName -eq $name) { Stop-Process -Id $processId -Force; Write-Host "$label stopped" -ForegroundColor Green }
     }
     Remove-Item $path -Force -ErrorAction SilentlyContinue
 }
