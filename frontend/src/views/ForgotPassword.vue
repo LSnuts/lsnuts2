@@ -12,9 +12,12 @@
         <el-form-item label="账号码" prop="account_code">
           <el-input v-model="form.account_code" placeholder="请输入6位账号码" maxlength="6" />
         </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" type="email" placeholder="请输入注册邮箱" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" class="w-full" :loading="loading" @click="submit">
-            验证身份
+          发送重置邮件
           </el-button>
         </el-form-item>
       </el-form>
@@ -38,7 +41,8 @@ const loading = ref(false)
 
 const form = reactive({
   username: '',
-  account_code: ''
+  account_code: '',
+  email: ''
 })
 
 const rules = {
@@ -46,7 +50,8 @@ const rules = {
   account_code: [
     { required: true, message: '请输入账号码', trigger: 'blur' },
     { len: 6, message: '账号码为6位数字', trigger: 'blur' }
-  ]
+  ],
+  email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }]
 }
 
 const submit = async () => {
@@ -57,11 +62,10 @@ const submit = async () => {
   try {
     const res = await axios.post('/api/auth/forgot-password', {
       username: form.username,
-      account_code: form.account_code
+      account_code: form.account_code,
+      email: form.email
     })
-    const resetUrl = res.data.data.reset_url
     ElMessage.success(res.data.msg)
-    router.push(resetUrl)
   } catch (e) {
     ElMessage.error(e.response?.data?.msg || '验证失败')
   } finally {

@@ -4,6 +4,7 @@
     <el-card title="用户注册" class="w-full max-w-[400px]">
       <el-form :model="form" label-width="80px">
         <el-form-item label="用户名"><el-input v-model="form.username" placeholder="请输入用户名" /></el-form-item>
+        <el-form-item label="邮箱"><el-input v-model="form.email" type="email" placeholder="用于找回密码" /></el-form-item>
         <el-form-item label="密码"><el-input v-model="form.password" type="password" placeholder="请输入密码" /></el-form-item>
         <el-form-item>
           <el-button type="primary" @click="register" :loading="loading" class="w-full md:w-auto">注册</el-button>
@@ -30,14 +31,14 @@ import axios from '../axios'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const form = ref({ username: '', password: '' })  // 注册表单数据
+const form = ref({ username: '', email: '', password: '' })  // 注册表单数据
 const loading = ref(false)  // 注册按钮加载状态
 const registeredAccountCode = ref('')  // 注册成功后返回的账号码
 
 // 执行注册操作
 const register = async () => {
   if (!form.value.username || !form.value.password) {
-    ElMessage.warning('请输入账号密码')
+    ElMessage.warning('请输入用户名、邮箱和密码')
     return
   }
   loading.value = true

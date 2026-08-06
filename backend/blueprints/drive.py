@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
 
@@ -45,7 +46,7 @@ def drive_list():
 @login_required
 def drive_upload():
     from app import app
-    file = request.files['file']
+    file = request.files.get('file')
     if not file or file.filename == '':
         return jsonify({'code':400, 'msg':'请选择文件'})
 
@@ -73,10 +74,12 @@ def drive_upload():
 
     filename = secure_filename(file.filename)
     unique_name = f"{uuid.uuid4().hex}_{filename}"
-    file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+    saved_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+    file.save(saved_path)
+    saved_size = os.path.getsize(saved_path)
 
     category = request.form.get('category', '默认')
-    db.session.add(File(filename=filename, file_path=unique_name, user_id=current_user.id, category=category))
+    db.session.add(File(filename=filename, file_path=unique_name, file_size=saved_size, user_id=current_user.id, category=category))
     db.session.commit()
     return jsonify({'code':200, 'msg':'上传成功'})
 
@@ -202,12 +205,8 @@ def drive_share_check(token):
 def drive_stats():
     from app import app
     total_files = File.query.filter_by(user_id=current_user.id).count()
-    total_size = 0
-    files = File.query.filter_by(user_id=current_user.id).all()
-    for f in files:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f.file_path)
-        if os.path.exists(file_path):
-            total_size += os.path.getsize(file_path)
+    from sqlalchemy import func
+    total_size = db.session.query(func.coalesce(func.sum(File.file_size), 0)).filter_by(user_id=current_user.id).scalar()
     
     return jsonify({'code': 200, 'data': {
         'total_files': total_files,

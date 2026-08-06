@@ -45,7 +45,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="40" :src="user.avatar ? `https://api.118201820.xyz/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="getAvatarUrl(user.avatar)" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -81,7 +81,7 @@
             @click="selectUser(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="40" :src="friend.avatar ? `https://api.118201820.xyz/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="getAvatarUrl(friend.avatar)" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -103,7 +103,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="40" :src="req.avatar ? `https://api.118201820.xyz/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="getAvatarUrl(req.avatar)" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -128,7 +128,7 @@
 
         <div v-else class="chat-room">
           <div class="chat-room-header">
-            <el-avatar :size="40" :src="selectedUser.avatar ? `https://api.118201820.xyz/uploads/${selectedUser.avatar}` : ''" :icon="!selectedUser.avatar ? 'User' : null">
+              <el-avatar :size="40" :src="getAvatarUrl(selectedUser.avatar)" :icon="!selectedUser.avatar ? 'User' : null">
               {{ selectedUser.username.charAt(0) }}
             </el-avatar>
             <div class="chat-room-info">
@@ -154,7 +154,7 @@
               :class="{ 'self': msg.sender_id === userStore.userInfo.id }"
             >
               <div class="message-avatar">
-                <el-avatar :size="32" :src="msg.sender_avatar ? `https://api.118201820.xyz/uploads/${msg.sender_avatar}` : ''" :icon="!msg.sender_avatar ? 'User' : null">
+                <el-avatar :size="32" :src="getAvatarUrl(msg.sender_avatar)" :icon="!msg.sender_avatar ? 'User' : null">
                   {{ msg.sender.charAt(0) }}
                 </el-avatar>
               </div>
@@ -220,7 +220,7 @@
               :key="user.id" 
               class="search-item"
             >
-              <el-avatar :size="48" :src="user.avatar ? `https://api.118201820.xyz/uploads/${user.avatar}` : ''" :icon="!user.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="getAvatarUrl(user.avatar)" :icon="!user.avatar ? 'User' : null">
                 {{ user.username.charAt(0) }}
               </el-avatar>
               <div class="search-info">
@@ -256,7 +256,7 @@
             @click="selectUserAndClose(friend)"
           >
             <div class="friend-avatar">
-              <el-avatar :size="48" :src="friend.avatar ? `https://api.118201820.xyz/uploads/${friend.avatar}` : ''" :icon="!friend.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="getAvatarUrl(friend.avatar)" :icon="!friend.avatar ? 'User' : null">
                 {{ friend.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -278,7 +278,7 @@
             class="pending-item"
           >
             <div class="pending-avatar">
-              <el-avatar :size="48" :src="req.avatar ? `https://api.118201820.xyz/uploads/${req.avatar}` : ''" :icon="!req.avatar ? 'User' : null">
+              <el-avatar :size="48" :src="getAvatarUrl(req.avatar)" :icon="!req.avatar ? 'User' : null">
                 {{ req.username.charAt(0) }}
               </el-avatar>
             </div>
@@ -302,6 +302,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '../stores/user';
+import { getAvatarUrl } from '../utils/helpers';
 import axios from '../axios';
 
 const userStore = useUserStore();

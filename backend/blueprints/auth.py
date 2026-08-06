@@ -2,6 +2,7 @@ import os
 import uuid
 import random
 import string
+import re
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
@@ -13,6 +14,8 @@ from models import db, User, Post, Comment, Bookmark, PostLike
 from utils import hash_password, verify_password
 from utils.secure_logger import info as secure_info, warning as secure_warning
 from werkzeug.utils import secure_filename
+from extensions import limiter
+from mailer import send_password_reset_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -29,6 +32,7 @@ def generate_account_code():
             return code
 
 @auth_bp.route('/api/login', methods=['POST'])
+@limiter.limit('10 per minute')
 def api_login():
     data = request.json
     if not data or not isinstance(data, dict):
@@ -57,19 +61,24 @@ def api_register():
     if not data or not isinstance(data, dict):
         return jsonify({'code': 400, 'msg': '请提供有效的请求数据'})
     username = (data.get('username') or '').strip()
+    email = (data.get('email') or '').strip().lower()
     password = data.get('password') or ''
-    if not username or not password:
-        return jsonify({'code': 400, 'msg': '用户名和密码不能为空'})
+    if not username or not email or not password:
+        return jsonify({'code': 400, 'msg': '用户名、邮箱和密码不能为空'})
     if len(username) < 2 or len(username) > 20:
         return jsonify({'code': 400, 'msg': '用户名需2-20个字符'})
     if len(password) < 6 or len(password) > 30:
         return jsonify({'code': 400, 'msg': '密码需6-30个字符'})
+    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+        return jsonify({'code': 400, 'msg': '邮箱格式不正确'})
     secure_info(f"[注册] 收到注册请求 - 用户: {username}")
     if User.query.filter_by(username=username).first():
         secure_warning(f"[注册] 失败 - 用户名已存在: {username}")
         return jsonify({'code': 400, 'msg': '用户名已存在'})
+    if User.query.filter_by(email=email).first():
+        return jsonify({'code': 400, 'msg': '邮箱已存在'})
     account_code = generate_account_code()
-    user = User(username=username, account_code=account_code, password=hash_password(password))
+    user = User(username=username, email=email, account_code=account_code, password=hash_password(password))
     db.session.add(user)
     db.session.commit()
     secure_info(f"[注册] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {account_code}")
@@ -301,29 +310,39 @@ def user_profile_posts(user_id):
     return jsonify({'code': 200, 'data': data, 'total': total, 'page': page, 'per_page': per_page})
 
 @auth_bp.route('/api/auth/forgot-password', methods=['POST'])
+@limiter.limit('5 per hour')
 def forgot_password():
     from datetime import timedelta
     
     data = request.json
     username = data.get('username', '').strip()
     account_code = data.get('account_code', '').strip()
+    email = data.get('email', '').strip().lower()
     
-    if not username or not account_code:
-        return jsonify({'code': 400, 'msg': '用户名和账号码不能为空'})
+    if not username or not account_code or not email:
+        return jsonify({'code': 400, 'msg': '用户名、账号码和邮箱不能为空'})
     
-    user = User.query.filter_by(username=username, account_code=account_code).first()
+    user = User.query.filter_by(username=username, account_code=account_code, email=email).first()
     if not user:
-        return jsonify({'code': 404, 'msg': '用户不存在或账号码错误'})
+        return jsonify({'code': 200, 'msg': '如果信息匹配，重置链接将发送到绑定邮箱'})
     
     token = uuid.uuid4().hex
     user.reset_token = token
     user.reset_expire = datetime.now(timezone.utc) + timedelta(hours=1)
     db.session.commit()
     
-    reset_url = f"/reset-password?token={token}"
-    return jsonify({'code': 200, 'msg': '验证成功，请设置新密码', 'data': {'reset_url': reset_url}})
+    frontend_url = os.environ.get('FRONTEND_URL', '').rstrip('/')
+    reset_url = f"{frontend_url}/reset-password?token={token}"
+    try:
+        send_password_reset_email(user.email, reset_url)
+    except Exception:
+        db.session.rollback()
+        secure_warning(f'[找回密码] 邮件发送失败 - user_id: {user.id}')
+        return jsonify({'code': 503, 'msg': '邮件发送失败，请稍后重试'}), 503
+    return jsonify({'code': 200, 'msg': '重置链接已发送到你的邮箱'})
 
 @auth_bp.route('/api/auth/verify-token', methods=['GET'])
+@limiter.limit('30 per minute')
 def verify_token():
     token = request.args.get('token', '')
     if not token:
@@ -339,6 +358,7 @@ def verify_token():
     return jsonify({'code': 200, 'msg': 'token有效', 'data': {'username': user.username}})
 
 @auth_bp.route('/api/auth/reset-password', methods=['POST'])
+@limiter.limit('10 per hour')
 def reset_password():
     data = request.json
     token = data.get('token', '')

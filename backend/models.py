@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)  # 用户ID，主键
     username = db.Column(db.String(50), unique=True, nullable=False)  # 用户名，唯一且不能为空
+    email = db.Column(db.String(255), unique=True, index=True, nullable=True)
     account_code = db.Column(db.String(6), unique=True, nullable=False)  # 六位数字账号码，用于搜索用户
     password = db.Column(db.String(100), nullable=False)  # 密码（加密存储）
     create_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # 注册时间
@@ -21,6 +22,7 @@ class User(UserMixin, db.Model):
 # 网盘文件表 - 存储用户上传的文件信息
 class File(db.Model):
     __tablename__ = 'files'
+    file_size = db.Column(db.BigInteger, nullable=False, default=0)
     id = db.Column(db.Integer, primary_key=True)  # 文件ID，主键
     filename = db.Column(db.String(255), nullable=False)  # 原始文件名
     file_path = db.Column(db.String(255), nullable=False)  # 服务器上的存储路径
@@ -35,6 +37,7 @@ class File(db.Model):
 # 聊天消息表 - 存储用户间的私聊消息
 class Message(db.Model):
     __tablename__ = 'messages'
+    __table_args__ = (db.Index('ix_messages_conversation_time', 'sender_id', 'receiver_id', 'send_time'),)
     id = db.Column(db.Integer, primary_key=True)  # 消息ID，主键
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 发送者ID
     receiver_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 接收者ID
@@ -81,6 +84,7 @@ class Comment(db.Model):
 # 通知表 - 存储用户收到的评论回复通知和聊天消息通知
 class Notification(db.Model):
     __tablename__ = 'notifications'
+    __table_args__ = (db.Index('ix_notifications_user_read_time', 'user_id', 'is_read', 'create_time'),)
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))  # 接收通知的用户
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'))  # 相关帖子ID

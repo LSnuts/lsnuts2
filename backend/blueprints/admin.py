@@ -1,6 +1,7 @@
 import os
 import functools
 import logging
+import re
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
@@ -29,7 +30,14 @@ def admin_required(func):
 @admin_required
 def admin_users():
     users = User.query.all()
-    res = [{'id': u.id, 'username': u.username, 'account_code': u.account_code, 'is_admin': u.is_admin, 'create_time': u.create_time.strftime('%Y-%m-%d %H:%M:%S')} for u in users]
+    res = [{
+        'id': u.id,
+        'username': u.username,
+        'email': u.email,
+        'account_code': u.account_code,
+        'is_admin': u.is_admin,
+        'create_time': u.create_time.strftime('%Y-%m-%d %H:%M:%S')
+    } for u in users]
     return ok(data=res)
 
 @admin_bp.route('/api/admin/delete/<int:uid>', methods=['DELETE'])
@@ -66,9 +74,6 @@ def admin_reset_avatar(uid):
 @admin_required
 def admin_update(uid):
     from utils import hash_password
-    if uid == current_user.id:
-        return fail('不能修改自己')
-
     data = request.json
     if not data or not isinstance(data, dict):
         return fail('请提供有效的请求数据')
@@ -77,9 +82,20 @@ def admin_update(uid):
         return fail('用户不存在', 404)
     
     if 'username' in data and data['username']:
-        if User.query.filter(User.username == data['username'], User.id != uid).first():
+        username = data['username'].strip()
+        if len(username) < 2 or len(username) > 20:
+            return fail('用户名需2-20个字符')
+        if User.query.filter(User.username == username, User.id != uid).first():
             return fail('用户名已存在')
-        user.username = data['username']
+        user.username = username
+
+    if 'email' in data:
+        email = (data.get('email') or '').strip().lower()
+        if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            return fail('保密邮箱格式不正确')
+        if email and User.query.filter(User.email == email, User.id != uid).first():
+            return fail('保密邮箱已被其他用户使用')
+        user.email = email or None
     
     if 'password' in data and data['password']:
         user.password = hash_password(data['password'])

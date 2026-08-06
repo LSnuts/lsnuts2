@@ -21,6 +21,8 @@ def chat_history(other_id):
     
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
     
     query = db.session.query(Message, User.username, User.avatar).join(User, Message.sender_id == User.id).filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == other_id)) |
@@ -54,42 +56,32 @@ def notification_count():
 @chat_bp.route('/api/notifications')
 @login_required
 def notification_list():
-    from models import Notification, Post, Comment
+    from models import Notification, Post, Comment, Message
     
     try:
-        notifs = Notification.query.filter(Notification.user_id == current_user.id).order_by(Notification.create_time.desc()).limit(50).all()
+        notifs = db.session.query(
+            Notification, Comment.content, Post.title, User.username, User.avatar, Message.content
+        ).outerjoin(Comment, Notification.comment_id == Comment.id
+        ).outerjoin(Post, Notification.post_id == Post.id
+        ).outerjoin(User, Notification.sender_id == User.id
+        ).outerjoin(Message, Notification.message_id == Message.id
+        ).filter(Notification.user_id == current_user.id
+        ).order_by(Notification.create_time.desc()).limit(50).all()
     except Exception as e:
         logger.error(f"查询通知失败: {e}")
         return jsonify({'code': 200, 'data': []})
     
     data = []
-    for n in notifs:
-        username = '未知用户'
-        avatar = None
-        post_title = None
-        comment_content = None
-        message_content = None
-        
-        if n.comment_id:
-            comment = Comment.query.get(n.comment_id)
-            if comment:
-                comment_user = User.query.get(comment.user_id)
-                if comment_user:
-                    username = comment_user.username
-                    avatar = comment_user.avatar
-                comment_content = comment.content[:100]
-        
-        if n.post_id:
-            post = Post.query.get(n.post_id)
-            if post:
-                post_title = post.title
+    for n, comment_content, post_title, username, avatar, message_content in notifs:
+        username = username or '未知用户'
+        comment_content = comment_content[:100] if comment_content else None
         
         item = {
             'id': n.id,
             'post_id': n.post_id,
             'comment_id': n.comment_id,
-            'message_id': None,
-            'sender_id': None,
+            'message_id': n.message_id,
+            'sender_id': n.sender_id,
             'type': n.type or 'comment_reply',
             'is_read': n.is_read,
             'create_time': n.create_time.strftime('%Y-%m-%d %H:%M:%S'),

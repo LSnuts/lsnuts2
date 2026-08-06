@@ -21,3 +21,9 @@ export function getAvatarUrl(avatarPath) {
   }
   return ''
 }
+
+export function getUploadUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return path.startsWith('/') ? API_BASE + path : API_BASE + '/' + path
+}

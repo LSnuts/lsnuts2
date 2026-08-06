@@ -10,7 +10,19 @@ services:
       - key: SECRET_KEY
         description: Flask 密钥（保持与开发环境一致）
       - key: FRONTEND_URL
-        description: 前端域名（如 https://www.yourdomain.com）
+        value: https://118201820.xyz
+      - key: MAIL_SERVER
+        value: smtp.163.com
+      - key: MAIL_PORT
+        value: '465'
+      - key: MAIL_USE_SSL
+        value: 'true'
+      - key: MAIL_USERNAME
+        description: 163 邮箱账号
+      - key: MAIL_PASSWORD
+        description: 163 邮箱 SMTP 授权码
+      - key: MAIL_DEFAULT_SENDER
+        description: 发件人邮箱，通常与 MAIL_USERNAME 相同
       - key: FLASK_ENV
         value: production
     plan: starter

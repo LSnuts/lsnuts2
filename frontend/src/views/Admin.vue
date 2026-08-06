@@ -1,6 +1,6 @@
 <template>
   <!-- 管理员后台页面 -->
-  <div class="p-3 md:p-5 dark:bg-gray-900 min-h-screen">
+  <div class="admin-page p-3 md:p-5 dark:bg-gray-900 min-h-screen">
     <!-- 标签页切换：数据统计 / 用户管理 / 帖子管理 -->
     <el-tabs v-model="activeTab" class="mb-4">
       <el-tab-pane label="📊 数据统计" name="dashboard">
@@ -11,23 +11,23 @@
               <el-button @click="loadStats()" size="small">🔄 刷新</el-button>
             </div>
           </template>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
               <div class="text-3xl font-bold">{{ stats.total_users }}</div>
               <div class="text-sm opacity-80">总用户数</div>
               <div class="text-xs mt-2">今日 +{{ stats.today_users }}</div>
             </div>
-            <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
+            <div class="stat-card bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
               <div class="text-3xl font-bold">{{ stats.total_posts }}</div>
               <div class="text-sm opacity-80">总帖子数</div>
               <div class="text-xs mt-2">今日 +{{ stats.today_posts }}</div>
             </div>
-            <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-4 text-white">
+            <div class="stat-card bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-4 text-white">
               <div class="text-3xl font-bold">{{ stats.total_comments }}</div>
               <div class="text-sm opacity-80">总评论数</div>
               <div class="text-xs mt-2">今日 +{{ stats.today_comments }}</div>
             </div>
-            <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+            <div class="stat-card bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
               <div class="text-3xl font-bold">{{ stats.total_files }}</div>
               <div class="text-sm opacity-80">总文件数</div>
             </div>
@@ -39,15 +39,23 @@
         <!-- 用户管理卡片 -->
         <el-card shadow="hover" class="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-200">
           <template #header>
-            <div class="flex items-center justify-between">
+            <div class="admin-card-header">
               <span class="font-bold text-lg dark:text-gray-200">👥 用户管理</span>
-              <el-button @click="loadUsers()" size="small">🔄 刷新列表</el-button>
+              <div class="user-toolbar">
+                <el-input v-model="userKeyword" clearable size="small" placeholder="搜索用户名、邮箱或账号码" class="user-search" />
+                <el-button @click="loadUsers()" size="small">🔄 刷新</el-button>
+              </div>
             </div>
           </template>
-          <el-table :data="users" class="w-full" stripe>
+          <el-table :data="filteredUsers" class="w-full admin-table" stripe>
             <el-table-column prop="id" label="ID" width="60" />
             <el-table-column prop="account_code" label="账号码" width="100" />
             <el-table-column prop="username" label="用户名" min-width="100" />
+            <el-table-column label="保密邮箱" min-width="190">
+              <template #default="{ row }">
+                <span class="email-cell">{{ maskEmail(row.email) }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="create_time" label="注册时间" width="160" />
             <el-table-column label="权限" width="90">
               <template #default="{ row }">
@@ -55,13 +63,18 @@
                 <el-tag type="success" v-else>普通用户</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
+            <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
-                <el-button-group>
-                  <el-button type="primary" size="small" @click="showEditDialog(row)">编辑</el-button>
-                  <el-button type="warning" size="small" @click="resetAvatar(row.id)">重置头像</el-button>
-                  <el-button type="danger" size="small" :disabled="row.id === myId" @click="del(row.id)">删除</el-button>
-                </el-button-group>
+                <el-dropdown @command="(command) => handleUserAction(command, row)">
+                  <el-button type="primary" size="small">管理 <span class="ml-1">⌄</span></el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="edit">编辑资料</el-dropdown-item>
+                      <el-dropdown-item command="avatar">重置头像</el-dropdown-item>
+                      <el-dropdown-item command="delete" divided :disabled="row.id === myId">删除用户</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </template>
             </el-table-column>
           </el-table>
@@ -183,6 +196,9 @@
         <el-form-item label="用户名">
           <el-input v-model="editForm.username" />
         </el-form-item>
+        <el-form-item label="保密邮箱">
+          <el-input v-model="editForm.email" type="email" placeholder="用于找回密码，不会公开显示" />
+        </el-form-item>
         <el-form-item label="新密码">
           <el-input v-model="editForm.password" type="password" placeholder="不填则不修改密码" />
         </el-form-item>
@@ -229,7 +245,7 @@
 
 <script setup>
 // 导入响应式 API、请求工具、消息提示和路由
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from '../axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -237,6 +253,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const activeTab = ref('dashboard')  // 当前激活的标签页
 const users = ref([])  // 用户列表数据
+const userKeyword = ref('')
 const posts = ref([])  // 帖子列表数据
 const hiddenPosts = ref([])  // 隐藏帖子列表
 const stats = ref({
@@ -270,9 +287,25 @@ const editForm = ref({
   id: null,
   account_code: '',
   username: '',
+  email: '',
   password: '',
   is_admin: 0
 })
+
+const filteredUsers = computed(() => {
+  const keyword = userKeyword.value.trim().toLowerCase()
+  if (!keyword) return users.value
+  return users.value.filter(user => [user.username, user.email, user.account_code]
+    .some(value => String(value || '').toLowerCase().includes(keyword)))
+})
+
+const maskEmail = (email) => {
+  if (!email) return '未设置'
+  const [name, domain] = email.split('@')
+  if (!domain) return email
+  const visible = name.length <= 2 ? name.charAt(0) : name.slice(0, 2)
+  return `${visible}${'*'.repeat(Math.max(2, name.length - visible.length))}@${domain}`
+}
 
 // 获取所有用户列表
 const getUsers = async () => {
@@ -382,6 +415,7 @@ const showEditDialog = (row) => {
     id: row.id,
     account_code: row.account_code,
     username: row.username,
+    email: row.email || '',
     password: '',
     is_admin: row.is_admin
   }
@@ -397,6 +431,7 @@ const saveEdit = async () => {
   
   const data = {
     username: editForm.value.username,
+    email: editForm.value.email,
     is_admin: editForm.value.is_admin
   }
   if (editForm.value.password) {
@@ -411,6 +446,12 @@ const saveEdit = async () => {
   } else {
     ElMessage.error(res.data.msg)
   }
+}
+
+const handleUserAction = (command, row) => {
+  if (command === 'edit') showEditDialog(row)
+  if (command === 'avatar') resetAvatar(row.id)
+  if (command === 'delete') del(row.id)
 }
 
 // 刷新用户列表（供模板调用）
@@ -478,3 +519,63 @@ onMounted(() => {
   Promise.all([loadStats(), getUsers(), getPosts(), getMyId(), getAnnouncements(), loadHiddenPosts()])
 })
 </script>
+
+<style scoped>
+.admin-page :deep(.el-tabs__header) {
+  margin-bottom: 16px;
+}
+
+.admin-page :deep(.el-tabs__nav-wrap::after) {
+  background-color: var(--el-border-color-light);
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.user-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-search {
+  width: 240px;
+}
+
+.stat-card {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.email-cell {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.admin-table :deep(.el-table__cell) {
+  padding: 10px 0;
+}
+
+@media (max-width: 640px) {
+  .admin-card-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .user-toolbar {
+    width: 100%;
+  }
+
+  .user-search {
+    flex: 1;
+    width: auto;
+  }
+}
+</style>

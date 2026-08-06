@@ -27,6 +27,8 @@ def forum_list():
     tag = request.args.get('tag', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
+    page = max(page, 1)
+    per_page = min(max(per_page, 1), 100)
     
     comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
     like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()

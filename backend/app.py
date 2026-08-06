@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 # 加载环境变量配置
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 except ImportError:
     pass
 
@@ -15,8 +15,6 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, emit
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 
 from models import db, User, File, Message, Post, Comment, Notification, PostLike, Bookmark
@@ -24,8 +22,9 @@ from utils import hash_password, verify_password
 from utils.secure_logger import info as secure_info, warning as secure_warning
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
+from extensions import limiter
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=getattr(logging, os.environ.get('LOG_LEVEL', 'INFO').upper(), logging.INFO), format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def load_or_generate_secret_key():
@@ -74,7 +73,7 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'lsnuts.db')
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 os.makedirs(os.path.join(os.path.dirname(__file__), 'static'), exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -97,7 +96,7 @@ socketio_cors_origins = ['http://localhost:5173', 'http://127.0.0.1:5173']
 if frontend_url:
     socketio_cors_origins.append(frontend_url)
 socketio = SocketIO(app, cors_allowed_origins=socketio_cors_origins)
-limiter = Limiter(get_remote_address, app=app, default_limits=["100 per minute"])
+limiter.init_app(app)
 migrate = Migrate(app, db)
 
 online_users_sockets = {}
@@ -159,7 +158,7 @@ def uploaded_file(filename):
 
     # 图片类型内联显示，其他类型强制下载防止 XSS
     ext = safe_filename.rsplit('.', 1)[1].lower() if '.' in safe_filename else ''
-    if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'):
+    if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
         return send_file(file_path)
     return send_file(file_path, as_attachment=True, download_name=safe_filename)
 

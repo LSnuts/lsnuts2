@@ -95,7 +95,7 @@
           :class="{ 'unread': n.is_read === 0 }"
         >
           <div class="notif-avatar">
-            <el-avatar :size="36" :src="n.avatar ? `https://api.118201820.xyz/uploads/${n.avatar}` : ''" :icon="!n.avatar ? 'User' : null">
+            <el-avatar :size="36" :src="getAvatarUrl(n.avatar)" :icon="!n.avatar ? 'User' : null">
               {{ n.username?.charAt(0) }}
             </el-avatar>
           </div>
@@ -169,6 +169,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from './stores/user'
 import { useNotificationStore } from './stores/notification'
+import { getAvatarUrl } from './utils/helpers'
 
 const userStore = useUserStore()
 const notifStore = useNotificationStore()
