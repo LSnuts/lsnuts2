@@ -9,15 +9,10 @@ from sqlalchemy import select, func
 
 from models import db, Post, Comment, User, PostLike, Bookmark, Notification
 from werkzeug.utils import secure_filename
+from api_response import ok, fail
 
 forum_bp = Blueprint('forum', __name__)
 logger = logging.getLogger(__name__)
-
-def ok(data=None, msg='success'):
-    return jsonify({'code': 200, 'msg': msg, 'data': data})
-
-def fail(msg, code=400):
-    return jsonify({'code': code, 'msg': msg}), code
 
 @forum_bp.route('/api/forum/list')
 def forum_list():
@@ -159,8 +154,8 @@ def forum_detail(post_id):
     if post.is_hidden == 1 and (not current_user.is_authenticated or not current_user.is_admin):
         return jsonify({'code':400, 'msg':'帖子不存在'})
     
-    user_post_count = Post.query.filter_by(user_id=post.user_id).count()
-    
+    post_count_subq = select(Post.user_id, func.count(Post.id).label('count')).group_by(Post.user_id).subquery()
+    user_post_count = db.session.query(func.coalesce(post_count_subq.c.count, 0)).filter(post_count_subq.c.user_id == post.user_id).scalar() or 0
     like_count = PostLike.query.filter_by(post_id=post_id).count()
     user_liked = False
     user_bookmarked = False
@@ -168,11 +163,17 @@ def forum_detail(post_id):
         user_liked = PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
         user_bookmarked = Bookmark.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
     
-    all_comments = db.session.query(Comment, User.username, User.is_admin, User.avatar, User.create_time).join(User, Comment.user_id == User.id).filter(Comment.post_id == post_id).order_by(Comment.create_time.asc()).all()
+    post_count_subq = select(Post.user_id, func.count(Post.id).label('user_post_count')).group_by(Post.user_id).subquery()
+    all_comments = db.session.query(
+        Comment, User.username, User.is_admin, User.avatar, User.create_time,
+        func.coalesce(post_count_subq.c.user_post_count, 0).label('user_post_count')
+    ).join(User, Comment.user_id == User.id).outerjoin(
+        post_count_subq, post_count_subq.c.user_id == Comment.user_id
+    ).filter(Comment.post_id == post_id).order_by(Comment.create_time.asc()).all()
     
     comment_map = {}
     top_comments = []
-    for comment, username, is_admin, avatar, c_user_created in all_comments:
+    for comment, username, is_admin, avatar, c_user_created, user_post_count in all_comments:
         c = {
             'id': comment.id,
             'content': comment.content,
@@ -182,7 +183,7 @@ def forum_detail(post_id):
             'parent_id': comment.parent_id,
             'create_time': comment.create_time.strftime('%Y-%m-%d %H:%M:%S'),
             'replies': [],
-            'user_post_count': Post.query.filter_by(user_id=comment.user_id).count(),
+            'user_post_count': user_post_count,
             'user_created': c_user_created.strftime('%Y-%m-%d') if c_user_created else ''
         }
         comment_map[comment.id] = c

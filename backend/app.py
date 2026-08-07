@@ -12,6 +12,7 @@ except ImportError:
     pass
 
 from flask import Flask, request, jsonify, send_file
+from werkzeug.exceptions import HTTPException
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, emit
@@ -74,6 +75,18 @@ else:
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    db.session.rollback()
+    if isinstance(error, HTTPException):
+        code = error.code or 500
+        message = error.description or '请求失败'
+    else:
+        code = 500
+        message = '服务器内部错误，请稍后重试'
+        logger.exception('[API] 未处理异常')
+    return jsonify({'code': code, 'msg': message}), code
 
 os.makedirs(os.path.join(os.path.dirname(__file__), 'static'), exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

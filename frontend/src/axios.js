@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
 const getBaseURL = () => {
   if (import.meta.env.DEV) {
@@ -14,12 +15,7 @@ const instance = axios.create({
 })
 
 const showError = (msg) => {
-  try {
-    const ElMessage = require('element-plus').ElMessage
-    ElMessage.error(msg)
-  } catch (e) {
-    console.error('Axios error:', msg)
-  }
+  ElMessage.error(msg)
 }
 
 instance.interceptors.request.use(

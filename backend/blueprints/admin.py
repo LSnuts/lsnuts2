@@ -6,15 +6,11 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from models import db, User, Post, Comment, Announcement
+from sqlalchemy import func
+from api_response import ok, fail
 
 admin_bp = Blueprint('admin', __name__)
 logger = logging.getLogger(__name__)
-
-def ok(data=None, msg='success'):
-    return jsonify({'code': 200, 'msg': msg, 'data': data})
-
-def fail(msg, code=400):
-    return jsonify({'code': code, 'msg': msg}), code
 
 def admin_required(func):
     @functools.wraps(func)
@@ -109,10 +105,9 @@ def admin_update(uid):
 @admin_bp.route('/api/admin/posts')
 @admin_required
 def admin_posts():
-    posts = db.session.query(Post, User.username).join(User, Post.user_id == User.id).order_by(Post.is_pinned.desc(), Post.create_time.desc()).all()
+    posts = db.session.query(Post, User.username, func.count(Comment.id).label('comment_count')).join(User, Post.user_id == User.id).outerjoin(Comment, Comment.post_id == Post.id).group_by(Post.id, User.id).order_by(Post.is_pinned.desc(), Post.create_time.desc()).all()
     res = []
-    for post, username in posts:
-        comment_count = db.session.query(Comment).filter(Comment.post_id == post.id).count()
+    for post, username, comment_count in posts:
         res.append({
             'id': post.id,
             'title': post.title,
@@ -175,10 +170,9 @@ def admin_stats():
 @admin_bp.route('/api/admin/hidden_posts')
 @admin_required
 def admin_hidden_posts():
-    posts = db.session.query(Post, User.username).join(User, Post.user_id == User.id).filter(Post.is_hidden == 1).order_by(Post.create_time.desc()).all()
+    posts = db.session.query(Post, User.username, func.count(Comment.id).label('comment_count')).join(User, Post.user_id == User.id).outerjoin(Comment, Comment.post_id == Post.id).filter(Post.is_hidden == 1).group_by(Post.id, User.id).order_by(Post.create_time.desc()).all()
     res = []
-    for post, username in posts:
-        comment_count = db.session.query(Comment).filter(Comment.post_id == post.id).count()
+    for post, username, comment_count in posts:
         res.append({
             'id': post.id,
             'title': post.title,

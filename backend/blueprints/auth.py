@@ -17,14 +17,9 @@ from utils.secure_logger import info as secure_info, warning as secure_warning
 from werkzeug.utils import secure_filename
 from extensions import limiter
 from mailer import send_password_reset_email, send_registration_code_email
+from api_response import ok, fail
 
 auth_bp = Blueprint('auth', __name__)
-
-def ok(data=None, msg='success'):
-    return jsonify({'code': 200, 'msg': msg, 'data': data})
-
-def fail(msg, code=400):
-    return jsonify({'code': code, 'msg': msg}), code
 
 def generate_account_code():
     while True:
@@ -330,7 +325,15 @@ def user_profile_posts(user_id):
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     
-    query = Post.query.filter_by(user_id=user_id).order_by(Post.create_time.desc())
+    comment_count_subq = select(Comment.post_id, func.count(Comment.id).label('count')).group_by(Comment.post_id).subquery()
+    like_count_subq = select(PostLike.post_id, func.count(PostLike.id).label('count')).group_by(PostLike.post_id).subquery()
+    query = db.session.query(
+        Post,
+        func.coalesce(comment_count_subq.c.count, 0).label('comment_count'),
+        func.coalesce(like_count_subq.c.count, 0).label('like_count')
+    ).outerjoin(comment_count_subq, Post.id == comment_count_subq.c.post_id).outerjoin(
+        like_count_subq, Post.id == like_count_subq.c.post_id
+    ).filter(Post.user_id == user_id).order_by(Post.create_time.desc())
     total = query.count()
     posts = query.offset((page - 1) * per_page).limit(per_page).all()
     
@@ -340,9 +343,9 @@ def user_profile_posts(user_id):
         'content': p.content[:200],
         'tag': p.tag or '',
         'create_time': p.create_time.strftime('%Y-%m-%d %H:%M:%S'),
-        'comment_count': Comment.query.filter_by(post_id=p.id).count(),
-        'like_count': PostLike.query.filter_by(post_id=p.id).count()
-    } for p in posts]
+        'comment_count': comment_count,
+        'like_count': like_count
+    } for p, comment_count, like_count in posts]
     
     return jsonify({'code': 200, 'data': data, 'total': total, 'page': page, 'per_page': per_page})
 

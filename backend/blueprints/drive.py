@@ -7,15 +7,10 @@ from flask_login import login_required, current_user
 
 from models import db, File
 from werkzeug.utils import secure_filename
+from api_response import ok, fail
 
 drive_bp = Blueprint('drive', __name__)
 logger = logging.getLogger(__name__)
-
-def ok(data=None, msg='success'):
-    return jsonify({'code': 200, 'msg': msg, 'data': data})
-
-def fail(msg, code=400):
-    return jsonify({'code': code, 'msg': msg}), code
 
 @drive_bp.route('/api/drive/list')
 @login_required

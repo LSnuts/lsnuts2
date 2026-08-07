@@ -4,15 +4,10 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from models import db, Message, User, Friendship
+from api_response import ok, fail
 
 chat_bp = Blueprint('chat', __name__)
 logger = logging.getLogger(__name__)
-
-def ok(data=None, msg='success'):
-    return jsonify({'code': 200, 'msg': msg, 'data': data})
-
-def fail(msg, code=400):
-    return jsonify({'code': code, 'msg': msg}), code
 
 @chat_bp.route('/api/chat/history/<int:other_id>')
 @login_required
