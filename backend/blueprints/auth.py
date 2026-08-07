@@ -3,8 +3,9 @@ import uuid
 import random
 import string
 import re
-from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify
+import hashlib
+from datetime import datetime, timezone, timedelta
+from flask import Blueprint, request, jsonify, session
 from flask_login import login_user, login_required, logout_user, current_user
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -15,7 +16,7 @@ from utils import hash_password, verify_password
 from utils.secure_logger import info as secure_info, warning as secure_warning
 from werkzeug.utils import secure_filename
 from extensions import limiter
-from mailer import send_password_reset_email
+from mailer import send_password_reset_email, send_registration_code_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -63,15 +64,27 @@ def api_register():
     username = (data.get('username') or '').strip()
     email = (data.get('email') or '').strip().lower()
     password = data.get('password') or ''
-    if not username or not email or not password:
+    confirm_password = data.get('confirm_password') or ''
+    verification_code = (data.get('verification_code') or '').strip()
+    if not username or not email or not password or not confirm_password or not verification_code:
         return jsonify({'code': 400, 'msg': '用户名、邮箱和密码不能为空'})
     if len(username) < 2 or len(username) > 20:
         return jsonify({'code': 400, 'msg': '用户名需2-20个字符'})
     if len(password) < 6 or len(password) > 30:
         return jsonify({'code': 400, 'msg': '密码需6-30个字符'})
+    if password != confirm_password:
+        return jsonify({'code': 400, 'msg': '两次输入的密码不一致'})
     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
         return jsonify({'code': 400, 'msg': '邮箱格式不正确'})
     secure_info(f"[注册] 收到注册请求 - 用户: {username}")
+    verification = session.get('register_verification') or {}
+    if verification.get('email') != email or not verification.get('code_hash'):
+        return jsonify({'code': 400, 'msg': '请先获取该邮箱的验证码'})
+    if verification.get('expires_at', 0) < datetime.now(timezone.utc).timestamp():
+        session.pop('register_verification', None)
+        return jsonify({'code': 400, 'msg': '验证码已过期，请重新获取'})
+    if hashlib.sha256(verification_code.encode('utf-8')).hexdigest() != verification['code_hash']:
+        return jsonify({'code': 400, 'msg': '验证码错误'})
     if User.query.filter_by(username=username).first():
         secure_warning(f"[注册] 失败 - 用户名已存在: {username}")
         return jsonify({'code': 400, 'msg': '用户名已存在'})
@@ -81,8 +94,32 @@ def api_register():
     user = User(username=username, email=email, account_code=account_code, password=hash_password(password))
     db.session.add(user)
     db.session.commit()
+    session.pop('register_verification', None)
     secure_info(f"[注册] 成功 - 用户: {user.username} (ID:{user.id}), 账号码: {account_code}")
     return jsonify({'code': 200, 'msg': '注册成功', 'data': {'account_code': account_code}})
+
+@auth_bp.route('/api/auth/send-register-code', methods=['POST'])
+@limiter.limit('3 per 10 minutes')
+def send_register_code():
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+        return jsonify({'code': 400, 'msg': '请输入正确的邮箱地址'})
+    if User.query.filter_by(email=email).first():
+        return jsonify({'code': 400, 'msg': '邮箱已存在'})
+    code = ''.join(random.choices(string.digits, k=6))
+    session['register_verification'] = {
+        'email': email,
+        'code_hash': hashlib.sha256(code.encode('utf-8')).hexdigest(),
+        'expires_at': (datetime.now(timezone.utc) + timedelta(minutes=10)).timestamp(),
+    }
+    try:
+        send_registration_code_email(email, code)
+    except Exception:
+        session.pop('register_verification', None)
+        return jsonify({'code': 503, 'msg': '验证码发送失败，请稍后重试'}), 503
+    return jsonify({'code': 200, 'msg': '验证码已发送，请查收邮件'})
+
 
 @auth_bp.route('/api/logout', methods=['POST'])
 @login_required

@@ -24,3 +24,19 @@ def send_password_reset_email(recipient, reset_url):
     with smtplib.SMTP_SSL(server, port, timeout=15) as smtp:
         smtp.login(username, password)
         smtp.send_message(message)
+
+
+def send_registration_code_email(recipient, code):
+    server = os.environ['MAIL_SERVER']
+    port = int(os.environ.get('MAIL_PORT', '465'))
+    username = os.environ['MAIL_USERNAME']
+    password = os.environ['MAIL_PASSWORD']
+    sender = os.environ.get('MAIL_DEFAULT_SENDER', username)
+    message = EmailMessage()
+    message['Subject'] = 'lsnuts registration verification code'
+    message['From'] = sender
+    message['To'] = recipient
+    message.set_content(f'Your lsnuts registration verification code is: {code}\n\nThis code expires in 10 minutes.')
+    with smtplib.SMTP_SSL(server, port, timeout=15) as smtp:
+        smtp.login(username, password)
+        smtp.send_message(message)
